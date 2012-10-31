@@ -24,6 +24,7 @@ import module namespace search="http://marklogic.com/corona/search" at "lib/sear
 import module namespace json="http://marklogic.com/json" at "lib/json.xqy";
 import module namespace structquery="http://marklogic.com/corona/structured-query" at "lib/structured-query.xqy";
 import module namespace stringquery="http://marklogic.com/corona/string-query" at "lib/string-query.xqy";
+import module namespace user="http://marklogic.com/corona/user" at "lib/user.xqy";
 
 import module namespace rest="http://marklogic.com/appservices/rest" at "lib/rest/rest.xqy";
 import module namespace endpoints="http://marklogic.com/corona/endpoints" at "/config/endpoints.xqy";
@@ -44,6 +45,9 @@ let $order := map:get($params, "order")
 let $frequency := map:get($params, "frequency")
 let $includeAllValues := map:get($params, "includeAllValues")
 let $txid := map:get($params, "txid")
+let $sessionToken := map:get($params, "sessionToken")
+
+let $login := user:loginBySessionToken($sessionToken)
 
 let $errors := ()
 

@@ -43,6 +43,10 @@ return common:output(
             else common:error("corona:TRANSFORMER-NOT-FOUND", "Transformer not found", "json")
         else json:array(manage:getAllTransformerNames())
 
+	(: Non-GET requests need to be authenticated as an admin user :)
+	else if(common:isCoronaAdmin() = false())
+	then ()
+
     else if($requestMethod = "PUT")
     then
         if(string-length($name))

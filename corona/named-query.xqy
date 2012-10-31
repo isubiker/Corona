@@ -20,6 +20,7 @@ import module namespace common="http://marklogic.com/corona/common" at "lib/comm
 import module namespace search="http://marklogic.com/corona/search" at "lib/search.xqy";
 import module namespace const="http://marklogic.com/corona/constants" at "lib/constants.xqy";
 import module namespace json="http://marklogic.com/json" at "lib/json.xqy";
+import module namespace user="http://marklogic.com/corona/user" at "lib/user.xqy";
 
 import module namespace rest="http://marklogic.com/appservices/rest" at "lib/rest/rest.xqy";
 import module namespace endpoints="http://marklogic.com/corona/endpoints" at "/config/endpoints.xqy";
@@ -40,6 +41,9 @@ let $matchingDocs := map:get($params, "matchingDoc")
 let $stringQuery := map:get($params, "stringQuery")
 let $structuredQuery := map:get($params, "structuredQuery")
 let $outputFormat := common:getOutputFormat((), map:get($params, "outputFormat"))
+let $sessionToken := map:get($params, "sessionToken")
+
+let $login := user:loginBySessionToken($sessionToken)
 
 let $errors := (
     if($requestMethod = "GET" and exists($matchingDocs) and exists(($name, $properties, $collections)))

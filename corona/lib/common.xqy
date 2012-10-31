@@ -422,10 +422,10 @@ declare function common:processPermissionParameter(
 {
     for $permission in $permissionParams
     let $bits := tokenize($permission, ":")
-    let $user := string-join($bits[1 to last() - 1], ":")
+    let $group := string-join($bits[1 to last() - 1], ":")
     let $access := $bits[last()]
-    where exists($user) and $access = ("update", "read", "execute")
-    return xdmp:permission($user, $access)
+    where exists($group) and $access = ("update", "read", "execute")
+    return xdmp:permission(concat("corona::", $group), $access)
 };
 
 declare function common:processPropertiesParameter(
@@ -438,4 +438,37 @@ declare function common:processPropertiesParameter(
     let $value := string-join($bits[2 to last()], ":")
     where exists($name)
     return store:createProperty($name, $value)
+};
+
+declare function common:isCoronaAdmin(
+) as xs:boolean
+{
+	let $header := xdmp:get-request-header("Authorization")
+	let $bits := tokenize(xdmp:base64-decode(substring-after($header, "Basic ")), ":")
+	let $success :=
+		if(count($bits) != 2)
+		then false()
+		else if(xdmp:user-roles($bits[1]) = (common:role("corona-admin"), common:role("admin")))
+		then xdmp:login($bits[1], $bits[2], false())
+		else false()
+	return
+		if($success)
+		then true()
+		else (
+			false(),
+			xdmp:set-response-code(401, "Unauthorized"),
+			xdmp:add-response-header("WWW-Authenticate", 'Basic realm="Corona Admin"')
+		)
+};
+
+declare function common:role(
+	$role as xs:string
+) as xs:integer?
+{
+	try {
+		xdmp:role($role)
+	}
+	catch ($e) {
+		()
+	}
 };

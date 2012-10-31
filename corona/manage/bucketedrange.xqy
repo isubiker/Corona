@@ -42,7 +42,11 @@ return common:output(
             if(exists($existing))
             then $existing
             else common:error("corona:RANGE-INDEX-NOT-FOUND", "Bucketed range index not found", "json")
-    else json:array(manage:getAllBucketedRanges())
+		else json:array(manage:getAllBucketedRanges())
+
+	(: Non-GET requests need to be authenticated as an admin user :)
+	else if(common:isCoronaAdmin() = false())
+	then ()
 
     else if($requestMethod = "POST")
     then

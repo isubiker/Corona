@@ -3,6 +3,68 @@ if(typeof corona == "undefined" || !corona) {
     corona.stash = {};
 }
 
+corona.queue = {};
+
+
+corona.setup = function(callback) {
+    asyncTest("Test setup", function() {
+		$.ajax({
+			url: "/manage/group/foogroup",
+			type: 'POST',
+			success: function() {
+				$.ajax({
+					url: "/manage/group/bargroup",
+					type: 'POST',
+					success: function() {
+						console.log("Setup: complete");
+						callback.call(this);
+					},
+					error: function(j, t, error) {
+						console.log("Setup: could not create group");
+					},
+					complete: function() {
+						start();
+					}
+				});
+			},
+			error: function(j, t, error) {
+				console.log("Setup: could not create group");
+			}
+		});
+	});
+};
+
+corona.teardown = function() {
+	if(corona.torndown === true) {
+		return;
+	}
+	corona.torndown = true;
+
+    asyncTest("Test teardown", function() {
+		$.ajax({
+			url: "/manage/group/foogroup",
+			type: 'DELETE',
+			success: function() {
+				$.ajax({
+					url: "/manage/group/bargroup",
+					type: 'DELETE',
+					success: function() {
+						console.log("Teardown: complete");
+					},
+					error: function(j, t, error) {
+						console.log("Teardown: could not delete group");
+					},
+					complete: function() {
+						start();
+					}
+				});
+			},
+			error: function(j, t, error) {
+				console.log("Teardown: could not delete group");
+			}
+		});
+	});
+}
 
 corona.documents = [
     {
@@ -29,8 +91,9 @@ corona.documents = [
         "type": "json",
         "uri": "/doc-store-test-2.json",
         "permissions": {
-            "app-builder": ["read", "update"],
-            "app-user": ["read"]
+            "public": ["read", "update"],
+            "foogroup": ["read", "update"],
+            "bargroup": ["read"]
         },
         "content": {
             "foo": "bar"
@@ -77,8 +140,9 @@ corona.documents = [
         "type": "xml",
         "uri": "/doc-store-test-2.xml",
         "permissions": {
-            "app-builder": ["read", "update"],
-            "app-user": ["read"]
+            "public": ["read", "update"],
+            "foogroup": ["read", "update"],
+            "bargroup": ["read"]
         },
         "content": "<foo>bar</foo>"
     },
@@ -129,6 +193,19 @@ corona.documents = [
     }
 ];
 
+corona.pushQueue = function(id) {
+	corona.queue[id] = true;
+};
+
+corona.popQueue = function(id) {
+	delete corona.queue[id];
+
+	if(jQuery.isEmptyObject(corona.queue)) {
+		corona.teardown();
+	}
+};
+
+
 corona.constructURL = function(verb, doc, prefix, processExtras, includeOutputFormat, staticExtras) {
     var extras = [];
     if(staticExtras) {
@@ -153,6 +230,9 @@ corona.constructURL = function(verb, doc, prefix, processExtras, includeOutputFo
         if(doc.permissions !== undefined) {
             for(var role in doc.permissions) {
                 if(!(doc.permissions[role] instanceof Function)) {
+					if(role === "public" && permissionArg === "removePermission") {
+						continue;
+					}
                     var roles = doc.permissions[role];
                     var j = 0;
                     for(j = 0; j < roles.length; j += 1) {
@@ -203,8 +283,11 @@ corona.constructURL = function(verb, doc, prefix, processExtras, includeOutputFo
 };
 
 corona.compareJSONDocuments = function(model, actual, withExtras) {
-    delete actual.permissions["corona-dev"];
     if(withExtras) {
+		if(actual.permissions && actual.permissions.public && (model.permissions === undefined || model.permissions.public === undefined)) {
+			delete actual.permissions["public"];
+		}
+
         if(model.permissions !== undefined) {
             for(var role in model.permissions) {
                 if(!(model.permissions[role] instanceof Function)) {
@@ -216,19 +299,23 @@ corona.compareJSONDocuments = function(model, actual, withExtras) {
                     actual.permissions[role].sort();
                 }
             }
-            deepEqual(model.permissions, actual.permissions, "Permissions match");
+            deepEqual(actual.permissions, model.permissions, "Permissions match");
         }
         if(model.properties !== undefined) {
-            deepEqual(model.properties, actual.properties, "Properties match");
+            deepEqual(actual.properties, model.properties, "Properties match");
         }
         if(model.collections !== undefined) {
-            deepEqual(model.collections.sort(), actual.collections.sort(), "Collections match");
+            deepEqual(actual.collections.sort(), model.collections.sort(), "Collections match");
         }
         if(model.quality !== undefined) {
-            equal(model.quality, actual.quality, "Quality matches");
+            equal(actual.quality, model.quality, "Quality matches");
         }
     }
     else {
+		if(actual.permissions && actual.permissions.public) {
+			delete actual.permissions["public"];
+		}
+
         deepEqual(actual.permissions, {}, "No permisssions");
         deepEqual(actual.properties, {}, "No properties");
         deepEqual(actual.collections, [], "No collections");
@@ -264,7 +351,7 @@ corona.compareXMLDocuments = function(model, xmlAsString, withExtras) {
 };
 
 
-corona.insertDocuments = function(prefix, withExtras, callback) {
+corona.insertDocuments = function(prefix, withExtras) {
     var i = 0;
     for(i = 0; i < corona.documents.length; i += 1) {
         if((corona.documents[i].type === "json" && corona.stash.status.features.JSONDocs === false) || corona.documents[i].shouldSucceed === false) {
@@ -272,7 +359,10 @@ corona.insertDocuments = function(prefix, withExtras, callback) {
         }
 
         var wrapper = function(index) {
+			var requestId = Math.random() + "";
+			corona.pushQueue(requestId);
             var doc = corona.documents[index];
+
             asyncTest("Inserting document: " + prefix + doc.uri, function() {
                 var docContent = doc.content;
                 if(doc.type === "json") {
@@ -282,6 +372,7 @@ corona.insertDocuments = function(prefix, withExtras, callback) {
                 if(withExtras) {
                     processExtras = "set";
                 }
+
                 $.ajax({
                     url: corona.constructURL("PUT", doc, prefix, processExtras, false),
                     type: 'PUT',
@@ -305,14 +396,15 @@ corona.insertDocuments = function(prefix, withExtras, callback) {
                                 }
 
                                 if(withExtras === false) {
-                                    corona.setExtras(prefix, this);
+                                    corona.setExtras(prefix, this, requestId);
                                 }
                                 else {
-                                    corona.deleteDocument(prefix, this);
+                                    corona.deleteDocument(prefix, this, requestId);
                                 }
                             },
                             error: function(j, t, error) {
                                 ok(false, "Could not fetch inserted document");
+								corona.popQueue(requestId);
                             },
                             complete: function() {
                                 start();
@@ -321,6 +413,7 @@ corona.insertDocuments = function(prefix, withExtras, callback) {
                     },
                     error: function(j, t, error) {
                         ok(false, "Could not insert document");
+						corona.popQueue(requestId);
                     }
                 });
             });
@@ -336,7 +429,11 @@ corona.insertAndMoveDocuments = function(prefix) {
         }
 
         var wrapper = function(index) {
+			var requestId = Math.random() + "";
+			corona.pushQueue(requestId);
+
             var doc = corona.documents[index];
+
             asyncTest("Inserting document: " + prefix + doc.uri, function() {
                 var docContent = doc.content;
                 if(doc.type === "json") {
@@ -374,10 +471,11 @@ corona.insertAndMoveDocuments = function(prefix) {
                                             corona.compareXMLDocuments(this, data, true);
                                         }
 
-                                        corona.deleteDocument("/moved", this);
+                                        corona.deleteDocument("/moved", this, requestId);
                                     },
                                     error: function(j, t, error) {
                                         ok(false, "Could not fetch moved document");
+										corona.popQueue(requestId);
                                     },
                                     complete: function() {
                                         start();
@@ -387,6 +485,7 @@ corona.insertAndMoveDocuments = function(prefix) {
                             error: function(j, t, error) {
                                 corona.deleteDocument("/moved", this);
                                 corona.deleteDocument(prefix, this);
+								corona.popQueue(requestId);
                                 ok(false, "Could not move document");
                             },
                             complete: function() {
@@ -396,6 +495,7 @@ corona.insertAndMoveDocuments = function(prefix) {
                     },
                     error: function(j, t, error) {
                         ok(false, "Could not insert document");
+						corona.popQueue(requestId);
                     }
                 });
             });
@@ -411,11 +511,15 @@ corona.runFailingTests = function(prefix) {
         }
 
         var wrapper = function(index) {
+			var requestId = Math.random() + "";
+			corona.pushQueue(requestId);
+
             var doc = corona.documents[index];
             var uri = "";
             if(doc.uri.length > 0) {
                 uri = prefix;
             }
+
             asyncTest("Inserting document: " + uri, function() {
                 var docContent = doc.content;
                 if(doc.type === "json") {
@@ -428,9 +532,11 @@ corona.runFailingTests = function(prefix) {
                     context: doc,
                     success: function() {
                         ok(false, "Test succeeded when it should have failed");
+						corona.popQueue(requestId);
                     },
                     error: function(j, t, error) {
                         ok(true, "Test failed, as expected");
+						corona.popQueue(requestId);
                     },
                     complete: function() {
                         start();
@@ -441,7 +547,7 @@ corona.runFailingTests = function(prefix) {
     }
 };
 
-corona.setExtras = function(prefix, doc) {
+corona.setExtras = function(prefix, doc, requestId) {
     asyncTest("Setting document extras: " + prefix + doc.uri, function() {
         $.ajax({
             url: corona.constructURL("POST", doc, prefix, "set", false),
@@ -463,10 +569,11 @@ corona.setExtras = function(prefix, doc) {
                         else {
                             corona.compareXMLDocuments(this, data, true);
                         }
-                        corona.removeExtras(prefix, doc);
+                        corona.removeExtras(prefix, doc, requestId);
                     },
                     error: function(j, t, error) {
                         ok(false, "Could not fetch document");
+						corona.popQueue(requestId);
                     },
                     complete: function() {
                         start();
@@ -475,12 +582,13 @@ corona.setExtras = function(prefix, doc) {
             },
             error: function(j, t, error) {
                 ok(false, "Could not update document extras");
+				corona.popQueue(requestId);
             }
         });
     });
 };
 
-corona.removeExtras = function(prefix, doc) {
+corona.removeExtras = function(prefix, doc, requestId) {
     asyncTest("Removing document extras: " + prefix + doc.uri, function() {
         $.ajax({
             url: corona.constructURL("POST", doc, prefix, "remove", false),
@@ -502,10 +610,11 @@ corona.removeExtras = function(prefix, doc) {
                         else {
                             corona.compareXMLDocuments(this, data, false);
                         }
-                        corona.addExtras(prefix, doc);
+                        corona.addExtras(prefix, doc, requestId);
                     },
                     error: function(j, t, error) {
                         ok(false, "Could not fetch document");
+						corona.popQueue(requestId);
                     },
                     complete: function() {
                         start();
@@ -514,12 +623,13 @@ corona.removeExtras = function(prefix, doc) {
             },
             error: function(j, t, error) {
                 ok(false, "Could not update document extras");
+				corona.popQueue(requestId);
             }
         });
     });
 };
 
-corona.addExtras = function(prefix, doc) {
+corona.addExtras = function(prefix, doc, requestId) {
     asyncTest("Adding document extras: " + prefix + doc.uri, function() {
         $.ajax({
             url: corona.constructURL("POST", doc, prefix, "add", false),
@@ -541,10 +651,11 @@ corona.addExtras = function(prefix, doc) {
                         else {
                             corona.compareXMLDocuments(this, data, true);
                         }
-                        corona.deleteDocument(prefix, doc);
+                        corona.deleteDocument(prefix, doc, requestId);
                     },
                     error: function(j, t, error) {
                         ok(false, "Could not fetch document");
+						corona.popQueue(requestId);
                     },
                     complete: function() {
                         start();
@@ -553,12 +664,13 @@ corona.addExtras = function(prefix, doc) {
             },
             error: function(j, t, error) {
                 ok(false, "Could not update document extras");
+				corona.popQueue(requestId);
             }
         });
     });
 };
 
-corona.deleteDocument = function(prefix, doc) {
+corona.deleteDocument = function(prefix, doc, requestId) {
     asyncTest("Deleting document: " + prefix + doc.uri, function() {
         $.ajax({
             url: corona.constructURL("DELETE", doc, prefix, "ignore", true),
@@ -572,9 +684,11 @@ corona.deleteDocument = function(prefix, doc) {
                     context: this,
                     success: function(data) {
                         ok(false, "Document not truly deleted");
+						corona.popQueue(requestId);
                     },
                     error: function(j, t, error) {
                         ok(true, "Document truly deleted");
+						corona.popQueue(requestId);
                     },
                     complete: function() {
                         start();
@@ -583,18 +697,21 @@ corona.deleteDocument = function(prefix, doc) {
             },
             error: function(j, t, error) {
                 ok(false, "Could not delete document");
+				corona.popQueue(requestId);
             }
         });
     });
 };
 
 $(document).ready(function() {
-    module("Store");
-    corona.fetchInfo(function(info) {
-        corona.stash.status = info;
-        corona.insertDocuments("/no-extras", false);
-        corona.insertDocuments("/extras", true);
-        corona.insertAndMoveDocuments("/moveme");
-        corona.runFailingTests("/failures");
-    });
+	corona.setup(function() {
+		module("Store");
+		corona.fetchInfo(function(info) {
+			corona.stash.status = info;
+			corona.insertDocuments("/no-extras", false);
+			corona.insertDocuments("/extras", true);
+			corona.insertAndMoveDocuments("/moveme");
+			corona.runFailingTests("/failures");
+		});
+	});
 });

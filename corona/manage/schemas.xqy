@@ -43,6 +43,10 @@ return common:output(
                 else common:error("corona:SCHEMA-NOT-FOUND", "Schema not found", "json")
         else json:array(manage:getAllSchemaURIs())
 
+	(: Non-GET requests need to be authenticated as an admin user :)
+	else if(common:isCoronaAdmin() = false())
+	then ()
+
     else if($requestMethod = "PUT")
     then
         if(string-length($uri))

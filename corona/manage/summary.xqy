@@ -90,6 +90,11 @@ return common:output(
             "xmlSchemas", json:array(manage:getAllSchemaURIs())
         ))
     )
+
+	(: Non-GET requests need to be authenticated as an admin user :)
+	else if(common:isCoronaAdmin() = false())
+	then ()
+
     else if($requestMethod = "DELETE")
     then (
             manage:deleteAllRanges(),

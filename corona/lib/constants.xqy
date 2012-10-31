@@ -20,6 +20,8 @@ module namespace const="http://marklogic.com/corona/constants";
 
 
 declare variable $const:version as xs:string := "1.0";
+declare variable $const:TransformerReadRole as xs:string := "corona::public";
+declare variable $const:AppAdminRole as xs:string := "corona::app-admin";
 declare variable $const:TransformersCollection as xs:string := "corona-transformers";
-declare variable $const:TransformerReadRole as xs:string := "corona-dev";
 declare variable $const:StoredQueriesCollection as xs:string := "corona-stored-queries";
+declare variable $const:UsersCollection as xs:string := "corona-users";

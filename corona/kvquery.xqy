@@ -22,6 +22,7 @@ import module namespace json="http://marklogic.com/json" at "lib/json.xqy";
 import module namespace const="http://marklogic.com/corona/constants" at "lib/constants.xqy";
 import module namespace manage="http://marklogic.com/corona/manage" at "lib/manage.xqy";
 import module namespace store="http://marklogic.com/corona/store" at "lib/store.xqy";
+import module namespace user="http://marklogic.com/corona/user" at "lib/user.xqy";
 import module namespace dateparser="http://marklogic.com/dateparser" at "lib/date-parser.xqy";
 
 import module namespace rest="http://marklogic.com/appservices/rest" at "lib/rest/rest.xqy";
@@ -46,6 +47,9 @@ let $applyTransform := map:get($params, "applyTransform")
 
 let $txid := map:get($params, "txid")
 let $outputFormat := common:getOutputFormat((), map:get($params, "outputFormat"))
+let $sessionToken := map:get($params, "sessionToken")
+
+let $login := user:loginBySessionToken($sessionToken)
 
 let $errors := (
     if(exists($attribute) and empty($element))

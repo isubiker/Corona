@@ -19,11 +19,13 @@ declare variable $endpoints:ENDPOINTS as element(rest:options) :=
         <param name="applyTransform" required="false"/>
         <param name="include" alias="include[]" repeatable="true" required="false" default="content"/>
         <param name="outputFormat" required="false" values="json|xml"/>
+		<param name="sessionToken" required="false"/>
     </request>
 
     <request uri="^/store/?$" endpoint="/corona/store.xqy" user-params="allow">
         <param name="uri" required="false"/>
         <param name="txid" required="false"/>
+		<param name="sessionToken" required="false"/>
 
         <http method="GET">
             <param name="stringQuery" required="false"/>
@@ -97,6 +99,7 @@ declare variable $endpoints:ENDPOINTS as element(rest:options) :=
         <param name="underDirectory" required="false"/>
         <param name="inDirectory" required="false"/>
         <param name="outputFormat" required="false" values="json|xml"/>
+		<param name="sessionToken" required="false"/>
         <http method="POST"/>
         <http method="GET"/>
     </request>
@@ -118,6 +121,7 @@ declare variable $endpoints:ENDPOINTS as element(rest:options) :=
         <param name="underDirectory" required="false"/>
         <param name="inDirectory" required="false"/>
         <param name="outputFormat" required="false" values="json|xml"/>
+		<param name="sessionToken" required="false"/>
         <http method="POST"/>
         <http method="GET"/>
     </request>
@@ -137,6 +141,7 @@ declare variable $endpoints:ENDPOINTS as element(rest:options) :=
         <param name="underDirectory" required="false"/>
         <param name="inDirectory" required="false"/>
         <param name="outputFormat" required="false"  values="xml|json"/>
+		<param name="sessionToken" required="false"/>
         <http method="POST"/>
         <http method="GET"/>
     </request>
@@ -155,6 +160,7 @@ declare variable $endpoints:ENDPOINTS as element(rest:options) :=
     <request uri="^/(namedquery|namedquery/([^/]+))/?$" endpoint="/corona/named-query.xqy" user-params="allow">
         <uri-param name="name">$2</uri-param>
         <param name="outputFormat" required="false"  values="xml|json"/>
+		<param name="sessionToken" required="false"/>
         <http method="GET">
             <param name="property" required="false"/>
             <param name="value" required="false"/>
@@ -173,6 +179,51 @@ declare variable $endpoints:ENDPOINTS as element(rest:options) :=
         </http>
         <http method="DELETE"/>
     </request>
+
+	<!-- User management -->
+    <request uri="^/(user|user/([^/]+))/?$" endpoint="/corona/user.xqy" user-params="allow">
+        <uri-param name="userId">$2</uri-param>
+        <param name="outputFormat" required="false" values="json|xml"/>
+        <http method="GET">
+            <param name="username" required="false"/>
+            <param name="email" required="false"/>
+            <param name="resetPasswordVia" required="false"/>
+            <param name="validateEmailCode" required="false"/>
+            <param name="checkSessionToken" required="false"/>
+		</http>
+        <http method="POST">
+            <param name="username" required="false"/>
+            <param name="email" required="false"/>
+            <param name="password" required="false"/>
+            <param name="userDocument" required="false"/>
+            <param name="group" alias="group[]" repeatable="true" required="false"/>
+            <param name="addToGroup" alias="addToGroup[]" repeatable="true" required="false"/>
+            <param name="removeFromGroup" alias="removeFromGroup[]" repeatable="true" required="false"/>
+            <param name="sessionToken" required="false"/>
+		</http>
+        <http method="DELETE">
+            <param name="username" required="false"/>
+            <param name="email" required="false"/>
+            <param name="password" required="false"/>
+            <param name="sessionToken" required="false"/>
+		</http>
+	</request>
+
+	<!-- User login -->
+    <request uri="^/login/?$" endpoint="/corona/login.xqy" user-params="allow">
+        <http method="GET">
+            <param name="username" required="false"/>
+            <param name="email" required="false"/>
+            <param name="password" required="false"/>
+		</http>
+	</request>
+
+	<!-- User logout -->
+    <request uri="^/logout/?$" endpoint="/corona/logout.xqy" user-params="allow">
+        <http method="POST">
+            <param name="sessionToken" required="false"/>
+		</http>
+	</request>
 
 
     <!-- Index management -->
@@ -282,6 +333,18 @@ declare variable $endpoints:ENDPOINTS as element(rest:options) :=
         <http method="DELETE"/>
     </request>
 
+    <!-- Group management -->
+    <request uri="^/manage/(groups|group/([^/]+))/?$" endpoint="/corona/manage/groups.xqy" user-params="allow">
+        <uri-param name="group" as="string">$2</uri-param>
+        <http method="GET"/>
+        <http method="POST">
+            <param name="parentGroups" required="false"/>
+            <param name="addSubgroup" alias="addSubgroup[]" repeatable="true" required="false"/>
+            <param name="removeSubgroup" alias="removeSubgroup[]" repeatable="true" required="false"/>
+		</http>
+        <http method="DELETE"/>
+    </request>
+
     <!-- Schema management -->
     <request uri="^/manage/(schemas|schema)/?$" endpoint="/corona/manage/schemas.xqy" user-params="allow">
         <param name="uri" required="false"/>
@@ -306,7 +369,7 @@ declare variable $endpoints:ENDPOINTS as element(rest:options) :=
     <request uri="^/config/transformers/?$" endpoint="/config/site/transformers.xqy" user-params="allow"/>
     <request uri="^/config/env/?$" endpoint="/config/site/env.xqy" user-params="allow"/>
 
-    <request uri="^/config/setup/?$" endpoint="/config/setup.xqy" user-params="allow">
+    <request uri="^/config/setup/?$" endpoint="/config/setup/index.xqy" user-params="allow">
         <http method="GET"/>
         <http method="POST"/>
     </request>

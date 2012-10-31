@@ -22,6 +22,7 @@ import module namespace const="http://marklogic.com/corona/constants" at "lib/co
 import module namespace stringquery="http://marklogic.com/corona/string-query" at "lib/string-query.xqy";
 import module namespace structquery="http://marklogic.com/corona/structured-query" at "lib/structured-query.xqy";
 import module namespace store="http://marklogic.com/corona/store" at "lib/store.xqy";
+import module namespace user="http://marklogic.com/corona/user" at "lib/user.xqy";
 import module namespace config="http://marklogic.com/corona/index-config" at "lib/index-config.xqy";
 
 import module namespace rest="http://marklogic.com/appservices/rest" at "lib/rest/rest.xqy";
@@ -40,8 +41,10 @@ let $applyTransform := map:get($params, "applyTransform")
 let $start := map:get($params, "start")
 let $length := map:get($params, "length")
 let $txid := map:get($params, "txid")
+let $sessionToken := map:get($params, "sessionToken")
 
 let $outputFormat := common:getOutputFormat((), map:get($params, "outputFormat"))
+let $login := user:loginBySessionToken($sessionToken)
 
 let $errors := (
     if(empty(($stringQuery, $structuredQuery)) or (exists($structuredQuery) and string-length(normalize-space($structuredQuery)) = 0))

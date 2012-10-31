@@ -31,6 +31,11 @@ let $requestMethod := xdmp:get-request-method()
 let $name := map:get($params, "name")
 
 return common:output(
+	(: Non-GET requests need to be authenticated as an admin user :)
+	if($requestMethod != "GET" and common:isCoronaAdmin() = false())
+	then ()
+	else
+
     try {
         if($requestMethod = ("POST", "DELETE") and string-length($name) = 0)
         then common:error("corona:INVALID-PARAMETER", "Must specify an environment variable name")

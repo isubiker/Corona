@@ -44,6 +44,10 @@ return common:output(
             else common:error("corona:RANGE-INDEX-NOT-FOUND", "Range index not found", "json")
         else json:array(manage:getAllRanges())
 
+	(: Non-GET requests need to be authenticated as an admin user :)
+	else if(common:isCoronaAdmin() = false())
+	then ()
+
     else if($requestMethod = "POST")
     then
         if(string-length($name))

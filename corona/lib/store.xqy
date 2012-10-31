@@ -271,6 +271,7 @@ declare function store:moveDocument(
     $newURI as xs:string
 ) as empty-sequence()
 {
+    let $test := store:validateURI($existingURI)
     let $test := store:validateURI($newURI)
     let $test :=
         if(empty(doc($existingURI)))
@@ -283,7 +284,19 @@ declare function store:moveDocument(
     return (
         xdmp:document-insert($newURI, doc($existingURI), xdmp:document-get-permissions($existingURI), xdmp:document-get-collections($existingURI), xdmp:document-get-quality($existingURI)),
         xdmp:document-set-properties($newURI, xdmp:document-properties($existingURI)/prop:properties/*),
-        xdmp:document-delete($existingURI)
+        xdmp:document-delete($existingURI),
+
+		if(store:getDocumentType($existingURI) = "binary" and exists(doc(store:getSidecarURI($existingURI))))
+		then
+			let $sidecarURI := store:getSidecarURI($existingURI)
+			let $newSidecarURI := store:getSidecarURI($newURI)
+			let $newSidecarDoc := <corona:sidecar type="binary" original="{ $newURI }">{ doc($sidecarURI)/corona:sidecar/* }</corona:sidecar>
+			return (
+				xdmp:document-insert($newSidecarURI, $newSidecarDoc, xdmp:document-get-permissions($sidecarURI), xdmp:document-get-collections($sidecarURI), xdmp:document-get-quality($sidecarURI)),
+				xdmp:document-set-properties($newSidecarURI, xdmp:document-properties($sidecarURI)/prop:properties/*),
+				xdmp:document-delete($sidecarURI)
+			)
+		else ()
     )
 };
 
@@ -325,6 +338,8 @@ declare function store:deleteDocument(
     $outputFormat as xs:string
 ) as element()
 {
+    let $test := store:validateURI($uri)
+	return
     if(store:documentExists($uri))
     then
         let $uris :=
@@ -410,12 +425,11 @@ declare function store:deleteDocumentsWithQuery(
 
     let $delete :=
         for $uri in $uris
-        let $doc := doc($uri)
-        where not(xdmp:document-get-collections($uri) = $const:TransformersCollection)
+        where not(xdmp:document-get-collections($uri) = ($const:TransformersCollection, $const:UsersCollection))
         return (
-            if(exists($doc/binary()))
-            then xdmp:document-delete(base-uri(/corona:sidecar[@original = $uri]))
-            else ()
+			if(store:getDocumentType($uri) = "binary" and exists(doc(store:getSidecarURI($uri))))
+			then xdmp:document-delete(store:getSidecarURI($uri))
+			else ()
             ,
             xdmp:document-delete($uri)
         )
@@ -500,7 +514,11 @@ declare function store:insertDocument(
         then store:applyContentTransformer(manage:getEnvVar("insertTransformer"), $body, $requestParameters)
         else $body
 
-    let $insert := xdmp:document-insert($uri, $body, (xdmp:default-permissions(), $permissions), $collections, $quality)
+	let $permissions :=
+		if(empty($permissions))
+		then xdmp:default-permissions()
+		else $permissions
+    let $insert := xdmp:document-insert($uri, $body, $permissions, $collections, $quality)
     let $set :=
         if(exists($properties))
         then xdmp:document-set-properties($uri, $properties)
@@ -544,12 +562,16 @@ declare function store:insertBinaryDocument(
     let $test := store:validateURI($uri)
     let $sidecarURI := store:getSidecarURI($uri)
     let $sidecar := store:createSidecarDocument($uri, $content, $suppliedContent, $extractMetadata, $extractContent, $applyTransform, $requestParameters)
-    let $insertSidecar := xdmp:document-insert($sidecarURI, $sidecar, (xdmp:default-permissions(), $permissions), $collections, $quality)
+	let $permissions :=
+		if(empty($permissions))
+		then xdmp:default-permissions()
+		else $permissions
+    let $insertSidecar := xdmp:document-insert($sidecarURI, $sidecar, $permissions, $collections, $quality)
     let $setPropertis :=
         if(exists($properties))
         then xdmp:document-set-properties($sidecarURI, $properties)
         else xdmp:document-set-properties($sidecarURI, ())
-    let $insert := xdmp:document-insert($uri, $content, (xdmp:default-permissions(), $permissions), $collections, $quality)
+    let $insert := xdmp:document-insert($uri, $content, $permissions, $collections, $quality)
     return
         if($respondWithContent)
         then $content
@@ -577,6 +599,7 @@ declare function store:updateDocumentContent(
     $respondWithContent as xs:boolean
 ) as node()?
 {
+    let $test := store:validateURI($uri)
     let $existing := doc($uri)
     let $test :=
         if(empty($existing))
@@ -647,7 +670,7 @@ declare function store:updateBinaryDocumentContent(
     let $updateSidecar :=
         if(exists($existingSidecar))
         then xdmp:node-replace($existingSidecar/*, $sidecar)
-        else xdmp:document-insert($sidecarURI, $sidecar, (xdmp:default-permissions(), xdmp:document-get-permissions($uri)), xdmp:document-get-collections($uri), xdmp:document-get-quality($uri))
+        else xdmp:document-insert($sidecarURI, $sidecar, xdmp:document-get-permissions($uri), xdmp:document-get-collections($uri), xdmp:document-get-quality($uri))
     let $update := xdmp:node-replace($existing/node(), $content)
     return
         if($respondWithContent)
@@ -686,6 +709,8 @@ declare function store:setProperties(
     $properties as element()*
 ) as empty-sequence()
 {
+    let $test := store:validateURI($uri)
+	return
     if(exists($properties))
     then
         if(store:getDocumentType($uri) = "binary")
@@ -699,6 +724,8 @@ declare function store:addProperties(
     $properties as element()*
 ) as empty-sequence()
 {
+    let $test := store:validateURI($uri)
+	return
     if(store:getDocumentType($uri) = "binary")
     then xdmp:document-add-properties(store:getSidecarURI($uri), $properties)
     else xdmp:document-add-properties($uri, $properties)
@@ -709,6 +736,7 @@ declare function store:removeProperties(
     $properties as xs:string*
 ) as empty-sequence()
 {
+    let $test := store:validateURI($uri)
     let $properties :=
         for $prop in $properties
         return QName("http://marklogic.com/corona", $prop)
@@ -723,6 +751,8 @@ declare function store:setPermissions(
     $permissions as element()*
 ) as empty-sequence()
 {
+    let $test := store:validateURI($uri)
+	return
     if(exists($permissions))
     then
         if(store:getDocumentType($uri) = "binary")
@@ -736,6 +766,8 @@ declare function store:addPermissions(
     $permissions as element()*
 ) as empty-sequence()
 {
+    let $test := store:validateURI($uri)
+	return
     if(store:getDocumentType($uri) = "binary")
     then xdmp:document-add-permissions(store:getSidecarURI($uri), $permissions)
     else xdmp:document-add-permissions($uri, $permissions)
@@ -746,6 +778,8 @@ declare function store:removePermissions(
     $permissions as element()*
 ) as empty-sequence()
 {
+    let $test := store:validateURI($uri)
+	return
     if(store:getDocumentType($uri) = "binary")
     then xdmp:document-remove-permissions(store:getSidecarURI($uri), $permissions)
     else xdmp:document-remove-permissions($uri, $permissions)
@@ -756,6 +790,8 @@ declare function store:setCollections(
     $collections as xs:string*
 ) as empty-sequence()
 {
+    let $test := store:validateURI($uri)
+	return
     if(empty($collections))
     then ()
     else if(empty(doc($uri)))
@@ -770,6 +806,8 @@ declare function store:addCollections(
     $collections as xs:string*
 ) as empty-sequence()
 {
+    let $test := store:validateURI($uri)
+	return
     if(store:getDocumentType($uri) = "binary")
     then xdmp:document-add-collections(store:getSidecarURI($uri), $collections)
     else xdmp:document-add-collections($uri, $collections)
@@ -780,6 +818,8 @@ declare function store:removeCollections(
     $collections as xs:string*
 ) as empty-sequence()
 {
+    let $test := store:validateURI($uri)
+	return
     if(store:getDocumentType($uri) = "binary")
     then xdmp:document-remove-collections(store:getSidecarURI($uri), $collections)
     else xdmp:document-remove-collections($uri, $collections)
@@ -790,6 +830,8 @@ declare function store:setQuality(
     $quality as xs:integer?
 ) as empty-sequence()
 {
+    let $test := store:validateURI($uri)
+	return
     if(exists($quality))
     then
         if(store:getDocumentType($uri) = "binary")
@@ -805,6 +847,8 @@ declare private function store:getDocumentCollections(
     $outputFormat as xs:string
 ) as element()*
 {
+    let $test := store:validateURI($uri)
+	return
     if($outputFormat = "json")
     then json:array(xdmp:document-get-collections($uri))
     else
@@ -817,6 +861,8 @@ declare private function store:getDocumentProperties(
     $outputFormat as xs:string
 ) as element()*
 {
+    let $test := store:validateURI($uri)
+	return
     if($outputFormat = "json")
     then
         json:object(
@@ -835,45 +881,35 @@ declare private function store:getDocumentPermissions(
     $outputFormat as xs:string
 ) as element()*
 {
-    if($outputFormat = "json")
-    then
-        json:object(
-            let $permMap := map:map()
-            let $populate :=
-                for $permission in xdmp:document-get-permissions($uri)
-                let $role := string($permission/sec:role-id)
-                let $capabilities := (map:get($permMap, $role), string($permission/sec:capability))
-                return map:put($permMap, $role, $capabilities)
-            for $key in map:keys($permMap)
-            let $role := xdmp:eval("
-                    xquery version ""1.0-ml"";
-                    import module ""http://marklogic.com/xdmp/security"" at ""/MarkLogic/security.xqy"";
-                    declare variable $roleId as xs:unsignedLong external;
-                    sec:get-role-names($roleId)
-                ", (
-                    xs:QName("roleId"), xs:unsignedLong($key)
-                ), <options xmlns="xdmp:eval"><database>{ xdmp:security-database() }</database></options>)
-            return (
-                $role, json:array(map:get($permMap, $key))
-            )
-        )
-    else
-        let $permMap := map:map()
-        let $populate :=
-            for $permission in xdmp:document-get-permissions($uri)
-            let $role := string($permission/sec:role-id)
-            let $capabilities := (map:get($permMap, $role), string($permission/sec:capability))
-            return map:put($permMap, $role, $capabilities)
-        for $key in map:keys($permMap)
-        let $role := xdmp:eval("
-                xquery version ""1.0-ml"";
-                import module ""http://marklogic.com/xdmp/security"" at ""/MarkLogic/security.xqy"";
-                declare variable $roleId as xs:unsignedLong external;
-                sec:get-role-names($roleId)
-            ", (
-                xs:QName("roleId"), xs:unsignedLong($key)
-            ), <options xmlns="xdmp:eval"><database>{ xdmp:security-database() }</database></options>)
-        return element { xs:QName(concat("corona:", $role)) } { for $perm in map:get($permMap, $key) return <corona:permission>{ $perm }</corona:permission> }
+	let $raw :=
+		let $permMap := xdmp:eval('
+			xquery version "1.0-ml";
+			import module "http://marklogic.com/xdmp/security" at "/MarkLogic/security.xqy";
+			declare variable $permissions as element(permissions) external;
+
+			let $permMap := map:map()
+			let $populate :=
+				for $permission in $permissions/*
+				let $roleId := string($permission/sec:role-id)
+				let $groupName := substring(sec:get-role-names(xs:unsignedLong($roleId)), 9)
+				let $capabilities := (map:get($permMap, $groupName), string($permission/sec:capability))
+				return map:put($permMap, $groupName, $capabilities)
+			return $permMap
+		', (
+			xs:QName("permissions"), <permissions>{ xdmp:document-get-permissions($uri) }</permissions>
+		), <options xmlns="xdmp:eval"><database>{ xdmp:security-database() }</database></options>)
+
+		for $groupName in map:keys($permMap)
+		return
+			if($outputFormat = "json")
+			then ($groupName, json:array(map:get($permMap, $groupName)))
+			else element { xs:QName(concat("corona:", $groupName)) } {
+				for $perm in map:get($permMap, $groupName) return <corona:permission>{ $perm }</corona:permission>
+			}
+	return
+		if($outputFormat = "json")
+		then json:object($raw)
+		else $raw
 };
 
 declare private function store:getDocumentQuality(
@@ -1098,7 +1134,7 @@ declare private function store:validateURI(
     else ()
 };
 
-declare private function store:unquoteXML(
+declare function store:unquoteXML(
     $content as xs:string,
 	$repair as xs:boolean
 ) as document-node()

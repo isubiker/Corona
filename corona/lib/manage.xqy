@@ -1932,3 +1932,130 @@ declare private function manage:createFieldForPlace(
 
         return admin:save-configuration($dbConfig)
 };
+
+
+declare function manage:groupExists(
+    $groupName as xs:string
+) as xs:boolean
+{
+	exists(common:role(concat("corona::", $groupName)))
+};
+
+declare function manage:getGroup(
+    $groupName as xs:string
+) as element(json:item)?
+{
+	let $fullName := concat("corona::", $groupName)
+	let $subgroups := xdmp:role-roles($fullName)
+	let $subgroupNames :=
+		if(exists($subgroups))
+		then xdmp:eval('
+            import module namespace sec="http://marklogic.com/xdmp/security" at "/MarkLogic/security.xqy";
+            declare variable $role as xs:string external;
+
+			for $role in xdmp:role-roles($role)
+			let $roleName := sec:get-role-names(xs:unsignedLong($role))
+			where starts-with($roleName, "corona::")
+			return substring($roleName, 9)
+        ', (xs:QName("role"), $fullName), <options xmlns="xdmp:eval"><database>{ xdmp:database("Security") }</database></options>)
+		else ()
+	return json:object((
+		"groupName", $groupName,
+		"subgroups", json:array($subgroupNames)
+	))
+};
+
+declare function manage:getGroups(
+) as element(json:item)*
+{
+	let $groupNames := xdmp:eval('
+            import module namespace sec="http://marklogic.com/xdmp/security" at "/MarkLogic/security.xqy";
+
+			for $role in sec:get-role-ids()
+			let $roleName := sec:get-role-names(xs:unsignedLong($role))
+			where starts-with($roleName, "corona::")
+			return substring($roleName, 9)
+        ', (), <options xmlns="xdmp:eval"><database>{ xdmp:database("Security") }</database></options>)
+	for $groupName in $groupNames
+	return manage:getGroup($groupName)
+};
+
+declare function manage:addGroupSubsgroups(
+	$groupName as xs:string,
+	$subgroupNames as xs:string*
+) as empty-sequence()
+{
+	let $fullName := concat("corona::", $groupName)
+	for $subgroupName in $subgroupNames
+	let $subRole := concat("corona::", $subgroupName)
+	return xdmp:eval('
+			import module namespace common="http://marklogic.com/corona/common" at "/corona/lib/common.xqy";
+            import module namespace sec="http://marklogic.com/xdmp/security" at "/MarkLogic/security.xqy";
+            declare variable $role as xs:string external;
+            declare variable $subRole as xs:string external;
+
+			let $login := common:isCoronaAdmin()
+			return sec:role-add-roles($role, $subRole)
+        ', (xs:QName("role"), $fullName, xs:QName("subRole"), $subRole), <options xmlns="xdmp:eval"><database>{ xdmp:database("Security") }</database></options>)
+};
+
+declare function manage:removeGroupSubgroups(
+	$groupName as xs:string,
+	$subgroupNames as xs:string*
+) as empty-sequence()
+{
+	let $fullName := concat("corona::", $groupName)
+	for $subgroupName in $subgroupNames
+	let $subRole := concat("corona::", $subgroupName)
+	return xdmp:eval('
+			import module namespace common="http://marklogic.com/corona/common" at "/corona/lib/common.xqy";
+            import module namespace sec="http://marklogic.com/xdmp/security" at "/MarkLogic/security.xqy";
+            declare variable $role as xs:string external;
+            declare variable $subRole as xs:string external;
+
+			let $login := common:isCoronaAdmin()
+			return sec:role-remove-roles($role, $subRole)
+        ', (xs:QName("role"), $fullName, xs:QName("subRole"), $subRole), <options xmlns="xdmp:eval"><database>{ xdmp:database("Security") }</database></options>)
+};
+
+declare function manage:addGroup(
+	$groupName as xs:string,
+	$parentGroups as xs:string*
+) as empty-sequence()
+{
+	let $fullName := concat("corona::", $groupName)
+	let $parentRoles := <roles>{(
+		for $parentGroup in $parentGroups
+		let $roleName := concat("corona::", $parentGroup)
+		where exists(common:role($roleName))
+		return <role>{ $roleName }</role>
+		,
+		<role>corona::public</role>
+	)}</roles>
+	let $set := xdmp:eval('
+			import module namespace common="http://marklogic.com/corona/common" at "/corona/lib/common.xqy";
+            import module namespace sec="http://marklogic.com/xdmp/security" at "/MarkLogic/security.xqy";
+            declare variable $role as xs:string external;
+            declare variable $parentRoles as element(roles) external;
+
+			let $login := common:isCoronaAdmin()
+			let $parentRoles := for $parentRole in $parentRoles/* return string($parentRole)
+			return sec:create-role($role, (), $parentRoles, (), ())
+        ', (xs:QName("role"), $fullName, xs:QName("parentRoles"), $parentRoles), <options xmlns="xdmp:eval"><database>{ xdmp:database("Security") }</database></options>)
+	return ()
+};
+
+declare function manage:removeGroup(
+	$groupName as xs:string
+) as empty-sequence()
+{
+	let $fullName := concat("corona::", $groupName)
+	return xdmp:eval('
+			import module namespace common="http://marklogic.com/corona/common" at "/corona/lib/common.xqy";
+            import module namespace sec="http://marklogic.com/xdmp/security" at "/MarkLogic/security.xqy";
+            declare variable $role as xs:string external;
+
+			let $login := common:isCoronaAdmin()
+			return sec:remove-role($role)
+        ', (xs:QName("role"), $fullName), <options xmlns="xdmp:eval"><database>{ xdmp:database("Security") }</database></options>)
+};

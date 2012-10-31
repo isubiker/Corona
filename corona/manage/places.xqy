@@ -56,6 +56,10 @@ let $output :=
             then manage:getPlace($name)
             else common:error("corona:INVALID-REQUEST", "Must supply a place name, request all the places or the anonymous place", "json")
 
+		(: Non-GET requests need to be authenticated as an admin user :)
+		else if(common:isCoronaAdmin() = false())
+		then ()
+
         else if($requestMethod = "PUT")
         then 
             if($scope = "place" and exists($name))

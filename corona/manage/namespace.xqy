@@ -43,6 +43,10 @@ return common:output(
             else common:error("corona:NAMESPACE-NOT-FOUND", "Namespace not found", "json")
         else json:array(manage:getAllNamespaces())
 
+	(: Non-GET requests need to be authenticated as an admin user :)
+	else if(common:isCoronaAdmin() = false())
+	then ()
+
     else if($requestMethod = "POST")
     then
         if(string-length($prefix))
