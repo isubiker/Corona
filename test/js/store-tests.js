@@ -90,11 +90,11 @@ corona.documents = [
     {
         "type": "json",
         "uri": "/doc-store-test-2.json",
-        "permissions": {
-            "public": ["read", "update"],
-            "foogroup": ["read", "update"],
-            "bargroup": ["read"]
-        },
+        "permissions": [
+            {"name": "public", "type": "group", "permissions": ["read", "update"]},
+            {"name": "foogroup", "type": "group", "permissions": ["read", "update"]},
+            {"name": "bargroup", "type": "group", "permissions": ["read"]}
+        ],
         "content": {
             "foo": "bar"
         }
@@ -139,11 +139,11 @@ corona.documents = [
     {
         "type": "xml",
         "uri": "/doc-store-test-2.xml",
-        "permissions": {
-            "public": ["read", "update"],
-            "foogroup": ["read", "update"],
-            "bargroup": ["read"]
-        },
+        "permissions": [
+            {"name": "public", "type": "group", "permissions": ["read", "update"]},
+            {"name": "foogroup", "type": "group", "permissions": ["read", "update"]},
+            {"name": "bargroup", "type": "group", "permissions": ["read"]}
+        ],
         "content": "<foo>bar</foo>"
     },
     {
@@ -179,9 +179,9 @@ corona.documents = [
     {
         "type": "xml",
         "uri": "/doc-store-test-6.xml",
-        "permissions": {
-            "nonexistant": ["read"]
-        },
+        "permissions": [
+            {"name": "nonexistant", "type": "group", "permissions": ["read"]},
+        ],
         "content": "<foo>bar</foo>",
         "shouldSucceed": false
     },
@@ -228,18 +228,18 @@ corona.constructURL = function(verb, doc, prefix, processExtras, includeOutputFo
 
     if(processExtras !== "ignore") {
         if(doc.permissions !== undefined) {
-            for(var role in doc.permissions) {
-                if(!(doc.permissions[role] instanceof Function)) {
-					if(role === "public" && permissionArg === "removePermission") {
-						continue;
-					}
-                    var roles = doc.permissions[role];
-                    var j = 0;
-                    for(j = 0; j < roles.length; j += 1) {
-                        extras.push(permissionArg + "=" + role + ":" + roles[j]);
-                    }
-                }
-            }
+			var i;
+			for(i = 0; i < doc.permissions.length; i += 1) {
+				var entity = doc.permissions[i];
+				if(entity.type === "group" && entity.name === "public" && permissionArg === "removePermission") {
+					continue;
+				}
+				var roles = entity.permissions;
+				var j = 0;
+				for(j = 0; j < roles.length; j += 1) {
+					extras.push(permissionArg + "=" + entity.type + ":" + entity.name + ":" + roles[j]);
+				}
+			}
         }
         if(doc.properties !== undefined) {
             for(var property in doc.properties) {
@@ -284,22 +284,26 @@ corona.constructURL = function(verb, doc, prefix, processExtras, includeOutputFo
 
 corona.compareJSONDocuments = function(model, actual, withExtras) {
     if(withExtras) {
-		if(actual.permissions && actual.permissions.public && (model.permissions === undefined || model.permissions.public === undefined)) {
-			delete actual.permissions["public"];
-		}
-
         if(model.permissions !== undefined) {
-            for(var role in model.permissions) {
-                if(!(model.permissions[role] instanceof Function)) {
-                    model.permissions[role].sort();
-                }
-            }
-            for(var role in actual.permissions) {
-                if(!(actual.permissions[role] instanceof Function)) {
-                    actual.permissions[role].sort();
-                }
-            }
-            deepEqual(actual.permissions, model.permissions, "Permissions match");
+			equal(actual.permissions.length, model.permissions.length, "Number of permissions matches");
+
+			var i = 0;
+			var j = 0;
+			for(i = 0; i < model.permissions.length; i += 1) {
+				var modelPerms = model.permissions[i];
+				var found = false;
+				for(j = 0; j < actual.permissions.length; j += 1) {
+					var actualPerms = actual.permissions[j];
+					if(actualPerms.name === modelPerms.name && actualPerms.type === modelPerms.type) {
+						found = true;
+						actualPerms.permissions.sort();
+						modelPerms.permissions.sort();
+						
+						deepEqual(actualPerms.permissions, modelPerms.permissions, "Permissions for " + actualPerms.name + " match");
+					}
+				}
+				ok(found, "Found the " + modelPerms.name + " permission");
+			}
         }
         if(model.properties !== undefined) {
             deepEqual(actual.properties, model.properties, "Properties match");
@@ -312,11 +316,17 @@ corona.compareJSONDocuments = function(model, actual, withExtras) {
         }
     }
     else {
+		if(actual.permissions && actual.permissions.length === 1) {
+			if(actual.permissions[0].name === "public" && actual.permissions[0].type === "group") {
+				actual.permissions = [];
+			}
+		}
+
 		if(actual.permissions && actual.permissions.public) {
 			delete actual.permissions["public"];
 		}
 
-        deepEqual(actual.permissions, {}, "No permisssions");
+        deepEqual(actual.permissions, [], "No permisssions");
         deepEqual(actual.properties, {}, "No properties");
         deepEqual(actual.collections, [], "No collections");
     }

@@ -134,13 +134,26 @@ declare function common:errorFromException(
 )
 {
     if($exception/*:code = "SEC-ROLEDNE")
-    then common:error("corona:INVALID-PERMISSION", concat("The role '", $exception/*:data/*:datum[. != "sec:role-name"], "' does not exist."), $outputFormat)
+    then
+		let $typeName := common:roleToGroupOrUser($exception/*:data/*:datum[. != "sec:role-name"])
+		return common:error("corona:INVALID-PERMISSION", concat("The ', $typeName[1], ' '", $typeName[2], "' does not exist."), $outputFormat)
     else if(starts-with($exception/*:name, "corona:") or starts-with($exception/*:name, "json:") or starts-with($exception/*:name, "path:"))
     then common:error($exception/*:name, $exception/*:message, $outputFormat)
     else (
         xdmp:log($exception),
         common:error("corona:INTERNAL-ERROR", concat($exception/*:message, " (", $exception/*:format-string, ")"), $outputFormat)
     )
+};
+
+declare function common:roleToGroupOrUser(
+	$role as xs:string*
+) as xs:string*
+{
+	if(starts-with($role, "corona::"))
+	then ("group", substring-after($role, "corona::"))
+	else if(starts-with($role, "coronauser::"))
+	then ("user", substring-after($role, "coronauser::"))
+	else ()
 };
 
 declare function common:output(
@@ -422,10 +435,14 @@ declare function common:processPermissionParameter(
 {
     for $permission in $permissionParams
     let $bits := tokenize($permission, ":")
-    let $group := string-join($bits[1 to last() - 1], ":")
-    let $access := $bits[last()]
-    where exists($group) and $access = ("update", "read", "execute")
-    return xdmp:permission(concat("corona::", $group), $access)
+	let $type := $bits[1]
+	let $name := string-join($bits[2 to last() - 1], ":")
+	let $access := $bits[last()]
+    where exists($type) and exists($name) and $access = ("update", "read", "execute")
+	return
+		if($type = "group")
+		then xdmp:permission(concat("corona::", $name), $access)
+		else xdmp:permission(concat("coronauser::", /corona:user[@username = $name]/@securityUsername), $access)
 };
 
 declare function common:processPropertiesParameter(

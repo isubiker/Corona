@@ -891,24 +891,32 @@ declare private function store:getDocumentPermissions(
 			let $populate :=
 				for $permission in $permissions/*
 				let $roleId := string($permission/sec:role-id)
-				let $groupName := substring(sec:get-role-names(xs:unsignedLong($roleId)), 9)
-				let $capabilities := (map:get($permMap, $groupName), string($permission/sec:capability))
-				return map:put($permMap, $groupName, $capabilities)
+				let $roleName := sec:get-role-names(xs:unsignedLong($roleId))
+				let $capabilities := (map:get($permMap, $roleName), string($permission/sec:capability))
+				return map:put($permMap, $roleName, $capabilities)
 			return $permMap
 		', (
 			xs:QName("permissions"), <permissions>{ xdmp:document-get-permissions($uri) }</permissions>
 		), <options xmlns="xdmp:eval"><database>{ xdmp:security-database() }</database></options>)
 
-		for $groupName in map:keys($permMap)
+		for $roleName in map:keys($permMap)
+		let $type :=
+			if(starts-with($roleName, "corona::"))
+			then "group"
+			else if(starts-with($roleName, "coronauser::"))
+			then "user"
+			else ()
+		let $name := substring-after($roleName, "::")
 		return
 			if($outputFormat = "json")
-			then ($groupName, json:array(map:get($permMap, $groupName)))
-			else element { xs:QName(concat("corona:", $groupName)) } {
-				for $perm in map:get($permMap, $groupName) return <corona:permission>{ $perm }</corona:permission>
-			}
+			then json:object(("name", $name, "type", $type, "permissions", json:array(map:get($permMap, $roleName))))
+			else <corona:entity type="{ $type }">{
+				for $perm in map:get($permMap, $roleName)
+				return <corona:permission>{ $perm }</corona:permission>
+			}</corona:entity>
 	return
 		if($outputFormat = "json")
-		then json:object($raw)
+		then json:array($raw)
 		else $raw
 };
 
