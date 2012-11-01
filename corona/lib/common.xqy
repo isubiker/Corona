@@ -438,7 +438,18 @@ declare function common:processPermissionParameter(
 	let $type := $bits[1]
 	let $name := string-join($bits[2 to last() - 1], ":")
 	let $access := $bits[last()]
-    where exists($type) and exists($name) and $access = ("update", "read", "execute")
+	let $test :=
+		if(count($bits) < 3)
+		then error(xs:QName("corona:INVALID-PERMISSION"), concat("The permission '", $permission, "' is invalid. Must be in the form of <type>:<name>:<capability>"))
+		else ()
+	let $test :=
+		if(not($type = ("group", "user")))
+		then error(xs:QName("corona:INVALID-PERMISSION"), concat("The permission '", $permission, "' is invalid. Must be in the form of <type>:<name>:<capability>. Valid types are 'user' or 'group'"))
+		else ()
+	let $test :=
+		if(not($access = ("read", "update")))
+		then error(xs:QName("corona:INVALID-PERMISSION"), concat("The permission '", $permission, "' is invalid. Must be in the form of <type>:<name>:<capability>. Valid capabilities are 'read' or 'update'"))
+		else ()
 	return
 		if($type = "group")
 		then xdmp:permission(concat("corona::", $name), $access)
