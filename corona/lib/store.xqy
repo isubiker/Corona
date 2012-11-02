@@ -23,6 +23,7 @@ import module namespace json="http://marklogic.com/json" at "json.xqy";
 import module namespace path="http://marklogic.com/mljson/path-parser" at "path-parser.xqy";
 import module namespace common="http://marklogic.com/corona/common" at "common.xqy";
 import module namespace manage="http://marklogic.com/corona/manage" at "manage.xqy";
+import module namespace user="http://marklogic.com/corona/user" at "user.xqy";
 import module namespace search="http://marklogic.com/appservices/search" at "/MarkLogic/appservices/search/search.xqy";
 import module namespace dateparser="http://marklogic.com/dateparser" at "date-parser.xqy";
 
@@ -49,6 +50,10 @@ declare function store:outputRawDocument(
         then store:wrapContentNodes(path:select($doc, $extractPath, "xpath"), $documentType)
         else if(exists($extractPath) and $documentType = "json")
         then store:wrapContentNodes(path:select($doc/json:json, $extractPath, "json"), $documentType)
+		else if(exists($extractPath) and $documentType = "user")
+        then store:wrapContentNodes(path:select(user:outputUser($doc/corona:user, $outputFormat), $extractPath, if($outputFormat = "json") then "json" else "xpath"), $documentType)
+		else if($documentType = "user")
+		then user:outputUser($doc/corona:user, $outputFormat)
         else if($documentType = "text")
         then $doc/text()
         else $doc
@@ -59,12 +64,10 @@ declare function store:outputRawDocument(
         then store:applyContentTransformer(manage:getEnvVar("fetchTransformer"), $content, $requestParameters)
         else $content
 
-    let $content :=
+	return
         if(exists($applyTransform) and manage:fetchTransformsEnabled())
         then store:applyContentTransformer($applyTransform, $content, $requestParameters)
         else $content
-
-    return $content
 };
 
 (:
@@ -103,14 +106,16 @@ declare function store:outputDocument(
         else $documentType
 
     let $searchableContent :=
-        if($documentType = "text")
+        if($documentType = "json")
+        then $doc/json:json
+		else if($documentType = "user")
+		then user:outputUser($doc/corona:user, $outputFormat)
+        else if($documentType = "text")
         then $doc/text()
         else if($documentType = "binary-sidecar")
         then $doc/corona:sidecar/corona:suppliedContent/*
         else if($documentType = "binary")
         then doc($contentURI)/corona:sidecar/corona:suppliedContent/*
-        else if($documentType = "json")
-        then $doc/json:json
         else $doc
 
     (: Perform the path extraction if one was provided :)
@@ -119,6 +124,8 @@ declare function store:outputDocument(
         then store:wrapContentNodes(path:select($searchableContent, $extractPath, "xpath"), $contentType)
         else if(exists($extractPath) and $contentType = "json")
         then store:wrapContentNodes(path:select($searchableContent, $extractPath, "json"), $contentType)
+        else if(exists($extractPath) and $contentType = "user")
+        then store:wrapContentNodes(path:select($searchableContent, $extractPath, if($outputFormat = "json") then "json" else "xpath"), $contentType)
         else $searchableContent
 
     (: Highlight the content body :)
@@ -320,6 +327,8 @@ declare function store:getDocumentTypeFromDoc(
 {
     if(exists($doc/json:json))
     then "json"
+    else if(exists($doc/corona:user))
+    then "user"
     else if(exists($doc/corona:sidecar))
     then "binary-sidecar"
     else if(exists($doc/*))

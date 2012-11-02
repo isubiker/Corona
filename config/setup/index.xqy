@@ -51,6 +51,7 @@ declare variable $publicPrivs := <privs>
     <priv>http://marklogic.com/xdmp/privileges/user-add-roles</priv>
     <priv>http://marklogic.com/xdmp/privileges/role-set-default-permissions</priv>
     <priv>http://marklogic.com/xdmp/privileges/user-set-default-permissions</priv>
+    <priv>http://marklogic.com/xdmp/privileges/xdmp-email</priv>
 </privs>;
 
 declare variable $appAdminPrivs := <privs>

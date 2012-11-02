@@ -22,10 +22,13 @@ import module namespace json="http://marklogic.com/json" at "json.xqy";
 import module namespace common="http://marklogic.com/corona/common" at "common.xqy";
 import module namespace const="http://marklogic.com/corona/constants" at "constants.xqy";
 import module namespace store="http://marklogic.com/corona/store" at "store.xqy";
+import module namespace manage="http://marklogic.com/corona/manage" at "manage.xqy";
 
 declare namespace corona="http://marklogic.com/corona";
 declare default function namespace "http://www.w3.org/2005/xpath-functions";
 
+declare variable $user:xsltEval := try { xdmp:function(xs:QName("xdmp:xslt-eval")) } catch ($e) {};
+declare variable $user:xsltIsSupported := try { xdmp:apply($xsltEval, <xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform" version="1.0"/>, <foo/>)[3], true() } catch ($e) { false() };
 
 declare function user:outputUser(
 	$user as element(corona:user),
@@ -115,8 +118,14 @@ declare function user:resetPassword(
 	$method as xs:string
 ) as empty-sequence()
 {
-	(: XXX - implement :)
-	()
+	let $userDoc := user:getById($userId)
+	let $transformerName := manage:getEnvVar("resetPasswordMessageTransformer")
+    let $transformer := manage:getTransformer($transformerName)
+	let $test :=
+		if(empty($transformerName) or empty($transformer))
+		then error(xs:QName("corona:NOT-CONFIGURED"), "Password reset isn't configured (missing transformer)")
+		else ()
+	return user:sendMessage($userDoc, $method, $transformer)
 };
 
 declare function user:createUser(
@@ -188,6 +197,13 @@ declare function user:createUser(
 	</corona:user>
 	let $uri := concat("_/user/", $userId, ".xml")
 	let $insert := xdmp:document-insert($uri, $userDoc, xdmp:default-permissions(), $const:UsersCollection)
+
+	let $transformerName := manage:getEnvVar("welcomeUserMessageTransformer")
+    let $transformer := manage:getTransformer($transformerName)
+	let $run :=
+		if(exists($transformerName) and exists($transformer))
+		then user:sendMessage(user:outputUser($userDoc, "xml"), "email", $transformer)
+		else ()
 	return $userDoc
 };
 
@@ -557,4 +573,24 @@ declare private function user:deleteByUserDoc(
 		', (xs:QName("username"), string($userDoc/@securityUsername)),
 		<options xmlns="xdmp:eval"><database>{ xdmp:database("Security") }</database></options>)
 	)
+};
+
+declare private function user:sendMessage(
+	$userDoc as element(corona:user),
+	$method as xs:string,
+	$transformer as item()
+) as empty-sequence()
+{
+	let $test :=
+		if($method != "email")
+		then error(xs:QName("corona:UNSUPPORTED-MESSAGE-METHOD"), concat("Unsupported message method '", $method, "'. Only 'email' is suported at this time."))
+		else ()
+
+	let $message :=
+        if(exists($transformer/*) and $user:xsltIsSupported)
+        then xdmp:apply($user:xsltEval, $transformer/*, $userDoc, ())
+        else if(exists($transformer/text()))
+        then xdmp:eval(string($transformer), (xs:QName("content"), $userDoc, xs:QName("requestParameters"), (), xs:QName("testMode"), false()), <options xmlns="xdmp:eval"><isolation>same-statement</isolation></options>)
+        else error(xs:QName("corona:INVALID-TRANSFORMER"), "XSLT transformations are not supported in this version of MarkLogic, upgrade to 5.0 or later")
+	return xdmp:email($message)
 };
