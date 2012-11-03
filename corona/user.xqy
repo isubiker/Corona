@@ -49,9 +49,9 @@ let $outputFormat := common:getOutputFormat((), map:get($params, "outputFormat")
 
 let $userId := if(string-length($userId) = 0) then () else $userId
 
-return common:output(
+return common:output(try {
     if($requestMethod = "GET")
-    then try {
+    then
 		if(exists($userId) and empty($checkSessionToken))
 		then user:outputUser(user:getById($userId), $outputFormat)
 		else if(exists($userId) and exists($checkSessionToken))
@@ -76,16 +76,12 @@ return common:output(
 		else if(exists($email) and exists($validateEmailCode))
 		then user:validateEmail($email, $validateEmailCode)
 		else error(xs:QName("corona:INVALID-PARAMETER"), "Users may be fetched by their userId, username or email")
-    }
-    catch ($e) {
-        common:errorFromException($e, $outputFormat)
-    }
 
     else if($requestMethod = "POST")
-    then try {(
+    then
 		if(empty($userId) and exists($username) and exists($email) and exists($password))
 		then (
-			xdmp:set-response-code(204, "User created"),
+			xdmp:set-response-code(201, "User created"),
 			user:outputUser(user:createUser($username, $email, $password, ($group, $addToGroup), $userDocument, $sessionToken), $outputFormat)
 		)
 		else if(empty($userId))
@@ -104,13 +100,9 @@ return common:output(
 		else if(exists($userId))
 		then user:updateUser($userId, $sessionToken, $username, $email, $password, $userDocument)
 		else ()
-    )}
-    catch ($e) {
-        common:errorFromException($e, $outputFormat)
-    }
 
     else if($requestMethod = "DELETE")
-    then try {
+    then
 		if(exists($password))
 		then
 			if(exists($userId))
@@ -130,10 +122,10 @@ return common:output(
 			then user:deleteByEmailAsAdmin($email, $sessionToken)
 			else error(xs:QName("corona:MISSING-PARAMETER"), "Users may be deleted by their userId, username or email")
 		else error(xs:QName("corona:MISSING-PARAMETER"), "Deleting a user requires either the user password or an app admin session token")
+
+    else common:error("corona:UNSUPPORTED-METHOD", concat("Unsupported method: ", $requestMethod), $outputFormat)
     }
     catch ($e) {
         common:errorFromException($e, $outputFormat)
     }
-
-    else common:error("corona:UNSUPPORTED-METHOD", concat("Unsupported method: ", $requestMethod), $outputFormat)
 )

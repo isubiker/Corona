@@ -31,40 +31,40 @@ declare variable $user:xsltEval := try { xdmp:function(xs:QName("xdmp:xslt-eval"
 declare variable $user:xsltIsSupported := try { xdmp:apply($xsltEval, <xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform" version="1.0"/>, <foo/>)[3], true() } catch ($e) { false() };
 
 declare function user:outputUser(
-	$user as element(corona:user),
+	$userDoc as element(corona:user),
 	$outputFormat as xs:string
 ) as element()
 {
 	if($outputFormat = "xml")
 	then <corona:user>
-		{ $user/@* except $user/@securityUsername }
-		{ $user/corona:session }
+		{ $userDoc/@* except $userDoc/@securityUsername }
+		{ $userDoc/corona:session }
 		<corona:userContent>{
-			if($user/corona:userContent/@type = "xml")
-			then ($user/corona:userContent/*)[1]
-			else if($user/corona:userContent/@type = "json")
-			then json:serialize(($user/corona:userContent/*)[1])
+			if($userDoc/corona:userContent/@type = "xml")
+			then ($userDoc/corona:userContent/*)[1]
+			else if($userDoc/corona:userContent/@type = "json")
+			then json:serialize(($userDoc/corona:userContent/*)[1])
 			else ()
 		}</corona:userContent>
 	</corona:user>
 	else json:object((
-		"id", $user/@id,
-		"username", $user/@username,
-		"createdAt::date", xs:dateTime($user/@createdAt),
+		"id", $userDoc/@id,
+		"username", $userDoc/@username,
+		"createdOn::date", xs:dateTime($userDoc/@createdOn),
 		"session", json:object((
-			"token", $user/corona:session/@token,
-			"issuedOn::date", xs:dateTime($user/corona:session/@issuedOn)
+			"token", $userDoc/corona:session/@token,
+			"issuedOn::date", xs:dateTime($userDoc/corona:session/@issuedOn)
 		)),
 		"primaryEmail", json:object((
-			"address", $user/corona:primaryEmail/@address,
-			"verified", xs:boolean($user/corona:primaryEmail/@verified),
-			"verificationCode", $user/corona:primaryEmail/@verificationCode,
-			"verificationEmailSentOn::date", xs:dateTime($user/corona:primaryEmail/@verificationEmailSentOn)
+			"address", $userDoc/corona:primaryEmail/@address,
+			"verified", xs:boolean($userDoc/corona:primaryEmail/@verified),
+			"verificationCode", $userDoc/corona:primaryEmail/@verificationCode,
+			"verificationEmailSentOn::date", xs:dateTime($userDoc/corona:primaryEmail/@verificationEmailSentOn)
 		)),
-		if($user/corona:userContent/@type = "xml")
-		then ("userContent::xml", ($user/corona:userContent/*)[1])
-		else if($user/corona:userContent/@type = "json")
-		then ("userContent", ($user/corona:userContent/*)[1])
+		if($userDoc/corona:userContent/@type = "xml")
+		then ("userContent::xml", ($userDoc/corona:userContent/*)[1])
+		else if($userDoc/corona:userContent/@type = "json")
+		then ("userContent", ($userDoc/corona:userContent/*)[1])
 		else ()
 	))
 };
@@ -184,7 +184,7 @@ declare function user:createUser(
 	let $userContentType := common:xmlOrJSON($userContent)
 	let $userContentType := if(empty($userContentType)) then "null" else $userContentType
 
-	let $userDoc := <corona:user securityUsername="{ $securityUsername }" id="{ $userId }" username="{ $username }" createdAt="{ current-dateTime() }">
+	let $userDoc := <corona:user securityUsername="{ $securityUsername }" id="{ $userId }" username="{ $username }" createdOn="{ current-dateTime() }">
 		{ user:constructSessionToken() }
 		{ user:constructEmailElement("primary", $email) }
 		<corona:userContent type="{ $userContentType }">{
