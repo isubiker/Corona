@@ -131,10 +131,12 @@ corona.removePrefix = function(prefix, callback) {
     $.ajax({
         url: "/manage/namedqueryprefix/" + prefix,
         type: 'GET',
+		beforeSend: corona.basicAuth,
         success: function() {
             $.ajax({
                 url: "/manage/namedqueryprefix/" + prefix,
                 type: 'DELETE',
+				beforeSend: corona.basicAuth,
                 success: function() {
                     callback.call();
                 }
@@ -157,6 +159,7 @@ $(document).ready(function() {
         $.ajax({
             url: "/manage/namedqueryprefix/zip",
             type: 'POST',
+			beforeSend: corona.basicAuth,
             success: function() {
                 $.ajax({
                     url: "/namedquery/zip:94402",

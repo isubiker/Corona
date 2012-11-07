@@ -8,11 +8,13 @@ corona.deleteEnvVar = function(name, callback) {
         $.ajax({
             url: "/manage/env/" + name,
             type: 'DELETE',
+			beforeSend: corona.basicAuth,
             success: function() {
                 ok(true, "Deleted var: " + name);
 				$.ajax({
 					url: "/manage/env",
 					type: 'GET',
+					beforeSend: corona.basicAuth,
 					success: function(data) {
 						ok(true, "Get env");
                         equals(data[name], undefined, "Env var is gone: " + name);
@@ -39,11 +41,13 @@ corona.setInsertHook = function(name, callback) {
             url: "/manage/env/insertTransformer",
             data: {value: name},
             type: 'POST',
+			beforeSend: corona.basicAuth,
             success: function() {
                 ok(true, "Insert env set");
 				$.ajax({
 					url: "/manage/env",
 					type: 'GET',
+					beforeSend: corona.basicAuth,
 					success: function(data) {
 						ok(true, "Get env");
 						if(name !== "") {
@@ -75,11 +79,13 @@ corona.setFetchHook = function(name, callback) {
             url: "/manage/env/fetchTransformer",
             data: {value: name},
             type: 'POST',
+			beforeSend: corona.basicAuth,
             success: function() {
                 ok(true, "Fetch env set");
 				$.ajax({
 					url: "/manage/env",
 					type: 'GET',
+					beforeSend: corona.basicAuth,
 					success: function(data) {
 						ok(true, "Get env");
 						if(name !== "") {
@@ -112,6 +118,7 @@ corona.testInsertHook = function(callback) {
 				url: "/store?uri=/auto-transform.xml&respondWithContent=true",
 				data: "<foo/>",
 				type: 'PUT',
+				beforeSend: corona.basicAuth,
 				success: function(response) {
 					ok(true, "Inserted document with auto-transform");
 					equals(response.getElementsByTagName("wrapper").length, 1, "Transformer was applied to document");
@@ -133,10 +140,12 @@ corona.testFetchHook = function(callback) {
 				url: "/store?uri=/auto-transform-on-fetch.xml",
 				data: "<foo/>",
 				type: 'PUT',
+				beforeSend: corona.basicAuth,
 				success: function(response) {
 					$.ajax({
 						url: "/store?uri=/auto-transform-on-fetch.xml",
 						type: 'GET',
+						beforeSend: corona.basicAuth,
 						success: function(response) {
 							ok(true, "Fetching document with auto-transform");
 							equals(response.getElementsByTagName("wrapper").length, 1, "Transformer was applied to document");

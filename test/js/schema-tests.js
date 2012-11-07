@@ -27,11 +27,13 @@ corona.removeSchemas = function(info, callback) {
             $.ajax({
                 url: url,
                 type: 'DELETE',
+				beforeSend: corona.basicAuth,
                 success: function() {
                     ok(true, "Removed schema: " + schema);
                     asyncTest("Check to make sure the schema is gone", function() {
                         $.ajax({
                             url: url,
+							beforeSend: corona.basicAuth,
                             success: function(data) {
                                 ok(false, "Schema still exists: " + schema);
                             },
@@ -80,6 +82,7 @@ corona.addSchemas = function(callback) {
                 url: "/manage/schema?uri=" + schema.uri,
                 data: schema.schema,
                 type: "PUT",
+				beforeSend: corona.basicAuth,
                 success: function() {
                     addNextItem();
                     ok(schema.shouldSucceed, "Schema added: " + schema.uri);
@@ -101,6 +104,7 @@ $(document).ready(function() {
     asyncTest("Schema tests", function() {
         $.ajax({
             url: '/manage',
+			beforeSend: corona.basicAuth,
             success: function(info) {
                 corona.removeSchemas(info, function() {
                     corona.addSchemas(function() {

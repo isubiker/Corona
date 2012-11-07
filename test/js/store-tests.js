@@ -11,10 +11,12 @@ corona.setup = function(callback) {
 		$.ajax({
 			url: "/manage/group/foogroup",
 			type: 'POST',
+			beforeSend: corona.basicAuth,
 			success: function() {
 				$.ajax({
 					url: "/manage/group/bargroup",
 					type: 'POST',
+					beforeSend: corona.basicAuth,
 					success: function() {
 						console.log("Setup: complete");
 						callback.call(this);
@@ -44,10 +46,12 @@ corona.teardown = function() {
 		$.ajax({
 			url: "/manage/group/foogroup",
 			type: 'DELETE',
+			beforeSend: corona.basicAuth,
 			success: function() {
 				$.ajax({
 					url: "/manage/group/bargroup",
 					type: 'DELETE',
+					beforeSend: corona.basicAuth,
 					success: function() {
 						console.log("Teardown: complete");
 					},

@@ -8,11 +8,13 @@ corona.testGroupCreation = function(name) {
         $.ajax({
             url: "/manage/group/" + name,
             type: 'POST',
+			beforeSend: corona.basicAuth,
             success: function() {
                 ok(true, "Group created");
 				$.ajax({
 					url: "/manage/group/" + name,
 					type: 'GET',
+					beforeSend: corona.basicAuth,
 					success: function(data) {
 						ok(true, "Get group");
 						equals(data.groupName, name, "Group name set to: " + name);
@@ -20,11 +22,13 @@ corona.testGroupCreation = function(name) {
 						$.ajax({
 							url: "/manage/group/" + name,
 							type: 'DELETE',
+							beforeSend: corona.basicAuth,
 							success: function() {
 								ok(true, "Deleted group: " + name);
 								$.ajax({
 									url: "/manage/groups",
 									type: 'GET',
+									beforeSend: corona.basicAuth,
 									success: function(data) {
 										var i = 0;
 										for(i = 0; i < data.length; i += 1) {

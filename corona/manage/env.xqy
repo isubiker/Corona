@@ -33,7 +33,7 @@ let $name := map:get($params, "name")
 return common:output(
 	(: Non-GET requests need to be authenticated as an admin user :)
 	if($requestMethod != "GET" and common:isCoronaAdmin() = false())
-	then ()
+	then common:error("corona:INSUFFICIENT-PERMISSIONS", "You don't have permission to execute this request")
 	else
 
     try {

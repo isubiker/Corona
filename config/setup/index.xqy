@@ -22,13 +22,14 @@ import module namespace const="http://marklogic.com/corona/constants" at "/coron
 import module namespace sec="http://marklogic.com/xdmp/security" at "/MarkLogic/security.xqy";
 import module namespace admin="http://marklogic.com/xdmp/admin" at "/MarkLogic/admin.xqy";
 
+declare option xdmp:mapping "false";
+
 declare variable $publicPrivs := <privs>
     <priv>http://marklogic.com/xdmp/privileges/xdmp-add-response-header</priv>
     <priv>http://marklogic.com/xdmp/privileges/xslt-eval</priv>
     <priv>http://marklogic.com/xdmp/privileges/xdmp-eval</priv>
     <priv>http://marklogic.com/xdmp/privileges/xdmp-eval-in</priv>
     <priv>http://marklogic.com/xdmp/privileges/get-role-names</priv>
-    <priv>http://marklogic.com/xdmp/privileges/any-uri</priv>
     <priv>http://marklogic.com/xdmp/privileges/xdmp-value</priv>
     <priv>http://marklogic.com/xdmp/privileges/any-collection</priv>
     <priv>http://marklogic.com/xdmp/privileges/admin-module-read</priv>
@@ -53,6 +54,12 @@ declare variable $publicPrivs := <privs>
     <priv>http://marklogic.com/xdmp/privileges/role-set-default-permissions</priv>
     <priv>http://marklogic.com/xdmp/privileges/user-set-default-permissions</priv>
     <priv>http://marklogic.com/xdmp/privileges/xdmp-email</priv>
+    <priv type="uri" name="corona-transformers-uri">_/transformers/</priv>
+    <priv type="uri" name="corona-users-uri">_/user/</priv>
+</privs>;
+
+declare variable $anyURIPivs := <privs>
+    <priv>http://marklogic.com/xdmp/privileges/any-uri</priv>
 </privs>;
 
 declare variable $adminPrivileges := <privs>
@@ -63,8 +70,6 @@ declare variable $adminPrivileges := <privs>
     <priv>http://marklogic.com/xdmp/privileges/xdmp-add-response-header</priv>
     <priv>http://marklogic.com/xdmp/privileges/admin-module-read</priv>
     <priv>http://marklogic.com/xdmp/privileges/admin-module-write</priv>
-    <priv>http://marklogic.com/xdmp/privileges/any-collection</priv>
-    <priv type="uri" name="corona-transformers-uri">_/transformers/</priv> <!-- XXX - is this needed? -->
 </privs>;
 
 declare function local:user(
@@ -118,6 +123,7 @@ declare function local:setupRole(
     let $createURIPrivs := xdmp:eval('
 		import module namespace sec="http://marklogic.com/xdmp/security" at "/MarkLogic/security.xqy";
 		declare variable $privileges as element(privs) external;
+		declare variable $role as xs:string external;
 
 		for $priv in $privileges/*
 		let $privExists := try {
@@ -127,23 +133,22 @@ declare function local:setupRole(
 				false()
 			}
 		where $priv/@type = "uri" and not($privExists)
-		return sec:create-privilege(string($priv/@name), string($priv), "uri", ())
-	', (xs:QName("privileges"), $privileges))
+		return sec:create-privilege(string($priv/@name), string($priv), "uri", $role)
+	', (xs:QName("privileges"), $privileges, xs:QName("role"), $role))
 
 	let $syncExecutePrivs := xdmp:eval('
 		import module namespace sec="http://marklogic.com/xdmp/security" at "/MarkLogic/security.xqy";
 		declare variable $role as xs:string external;
 		declare variable $privileges as element(privs) external;
 
-		let $newPrivileges := for $i in $privileges/* return string($i)
-		let $existingPrivileges := for $i in sec:role-privileges($role) return string($i/sec:action)
+		let $newPrivileges := for $i in $privileges/* where empty($i/@type) return string($i)
+		let $existingPrivileges := for $i in sec:role-privileges($role) where $i/sec:kind = "execute" return string($i/sec:action)
 		let $privilegesToRemove := $existingPrivileges[not(. = $newPrivileges)]
 
 		return (
 			for $priv in $privileges/*
-			let $type := ($priv/@type, "execute")[1]
 			where empty($priv/@type)
-			return try { sec:privilege-add-roles(string($priv), $type, $role) } catch($e) {}
+			return try { sec:privilege-add-roles(string($priv), "execute", $role) } catch($e) {}
 			,
 			for $priv in $privilegesToRemove
 			return sec:privilege-remove-roles($priv, "execute", $role)
@@ -178,7 +183,8 @@ declare function local:setupErrorHandler(
 declare function local:setupPublicRoleAndUser(
 ) as xs:boolean
 {
-	let $create := local:setupRole($const:PublicRole, "Corona Public", $publicPrivs, ())
+	let $create := local:setupRole($const:AdminStoreAnyURIRole, "Store documents at any URI", $anyURIPivs, ())
+	let $create := local:setupRole($const:PublicRole, "Corona Public", $publicPrivs, $const:AdminStoreAnyURIRole)
 	return
 		if(sec:user-exists("corona"))
 		then false()
@@ -186,6 +192,7 @@ declare function local:setupPublicRoleAndUser(
 			true(),
 			xdmp:eval('
 				import module namespace sec="http://marklogic.com/xdmp/security" at "/MarkLogic/security.xqy";
+				import module namespace const="http://marklogic.com/corona/constants" at "/corona/lib/constants.xqy";
 
 				sec:create-user("corona", "Default Corona User", xs:string(xdmp:random()), $const:PublicRole, (
 					xdmp:permission($const:PublicRole, "read"),
@@ -246,15 +253,15 @@ then xdmp:redirect-response("/config/setup")
 else
 
 (: User roles :)
-let $setup := local:setupRole($const:AdminUsersGroupsRole, "User Groups Administrators", <privs/>, $const:PublicRole)
-let $setup := local:setupRole($const:AdminUsersDeleteRole, "Delete User Administrators", <privs/>, $const:PublicRole)
+let $setup := local:setupRole($const:AdminUsersGroupsRole, "User Groups Administrators", <privs/>, ())
+let $setup := local:setupRole($const:AdminUsersDeleteRole, "Delete User Administrators", <privs/>, ())
 let $setup := local:setupRole($const:AdminUsersRole, "User Administrators", <privs/>, ($const:AdminUsersGroupsRole, $const:AdminUsersDeleteRole))
 
 (: Store roles :)
-let $setup := local:setupRole($const:AdminStoreRole, "Store Administrators", <privs/>, ())
+let $setup := local:setupRole($const:AdminStoreRole, "Store Administrators", <privs/>, $const:AdminStoreAnyURIRole)
 
 (: Public role :)
-let $setup := local:setupRole($const:AdminRole, "Application Administrators", <privs/>, $const:PublicRole)
+let $setup := local:setupRole($const:AdminRole, "Application Administrators", <privs/>, ($const:PublicRole, $const:AdminUsersRole, $const:AdminStoreRole))
 
 let $setup := local:setupRole("corona-admin", "Corona Administrators", $adminPrivileges, ())
 

@@ -3,6 +3,10 @@ if(typeof corona == "undefined" || !corona) {
     corona.stash = {};
 }
 
+corona.basicAuth = function(xhr) {
+	xhr.setRequestHeader("Authorization", "Basic " + btoa("admin:admin"));
+};
+
 corona.fetchInfo = function(callback) {
     asyncTest("Fetching Corona state", function() {
         $.ajax({

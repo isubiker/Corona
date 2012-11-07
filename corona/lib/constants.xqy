@@ -26,9 +26,11 @@ declare variable $const:AdminRole as xs:string := "corona::admin";
 declare variable $const:AdminUsersRole as xs:string := "corona::admin-users";
 declare variable $const:AdminUsersDeleteRole as xs:string := "corona::admin-users-delete";
 declare variable $const:AdminUsersGroupsRole as xs:string := "corona::admin-users-groups";
-declare variable $const:AdminStoreRole as xs:string := "corona::admin-store";
 
-declare variable $const:ProtectedRoles as xs:string+ := ($const:PublicRole, $const:AdminRole, $const:AdminUsersRole, $const:AdminUsersDeleteRole, $const:AdminUsersGroupsRole, $const:AdminStoreRole);
+declare variable $const:AdminStoreRole as xs:string := "corona::admin-store";
+declare variable $const:AdminStoreAnyURIRole as xs:string := "corona::admin-store-any-uri";
+
+declare variable $const:ProtectedRoles as xs:string+ := ($const:PublicRole, $const:AdminRole, $const:AdminUsersRole, $const:AdminUsersDeleteRole, $const:AdminUsersGroupsRole, $const:AdminStoreRole, $const:AdminStoreAnyURIRole);
 
 declare variable $const:TransformerReadRole as xs:string := $const:PublicRole;
 

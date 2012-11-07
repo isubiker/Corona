@@ -58,7 +58,7 @@ let $output :=
 
 		(: Non-GET requests need to be authenticated as an admin user :)
 		else if(common:isCoronaAdmin() = false())
-		then ()
+		then common:error("corona:INSUFFICIENT-PERMISSIONS", "You don't have permission to execute this request")
 
         else if($requestMethod = "PUT")
         then 

@@ -26,11 +26,13 @@ corona.removeGeoIndexes = function(info, callback) {
             $.ajax({
                 url: url,
                 type: 'DELETE',
+				beforeSend: corona.basicAuth,
                 success: function() {
                     ok(true, "Removed geo: " + geo.name);
                     asyncTest("Check to make sure the geo index is gone", function() {
                         $.ajax({
                             url: url,
+							beforeSend: corona.basicAuth,
                             success: function(data) {
                                 ok(false, "Geo index still exists: " + geo.name);
                             },
@@ -77,11 +79,13 @@ corona.removeNamespaces = function(info, callback) {
             $.ajax({
                 url: url,
                 type: 'DELETE',
+				beforeSend: corona.basicAuth,
                 success: function() {
                     ok(true, "Removed namespace: " + namespace.prefix);
                     asyncTest("Check to make sure the namespace is gone", function() {
                         $.ajax({
                             url: url,
+							beforeSend: corona.basicAuth,
                             success: function(data) {
                                 ok(false, "Namespace still exists: " + namespace.prefix);
                             },
@@ -129,11 +133,13 @@ corona.removeTransformers = function(info, callback) {
             $.ajax({
                 url: url,
                 type: 'DELETE',
+				beforeSend: corona.basicAuth,
                 success: function() {
                     ok(true, "Removed transformer: " + transformer);
                     asyncTest("Check to make sure the transformer is gone", function() {
                         $.ajax({
                             url: url,
+							beforeSend: corona.basicAuth,
                             success: function(data) {
                                 ok(false, "Transformer still exists: " + transformer);
                             },
@@ -183,11 +189,13 @@ corona.removeRangeIndexes = function(info, callback) {
             $.ajax({
                 url: url,
                 type: 'DELETE',
+				beforeSend: corona.basicAuth,
                 success: function() {
                     ok(true, "Removed range index: " + index.name);
                     asyncTest("Check to make sure the range index is gone", function() {
                         $.ajax({
                             url: url,
+							beforeSend: corona.basicAuth,
                             success: function(data) {
                                 ok(false, "Range index still exists: " + index.name);
                             },
@@ -223,6 +231,7 @@ corona.removeAnonymousPlaces = function(info, callback) {
             asyncTest("Check to make sure the anonymous places are gone", function() {
                 $.ajax({
                     url: "/manage/place",
+					beforeSend: corona.basicAuth,
                     success: function(config) {
                         equals(0, config.places.length, "Number of anonymous places remaining");
                         callback.call();
@@ -261,6 +270,7 @@ corona.removeAnonymousPlaces = function(info, callback) {
             $.ajax({
                 url: url,
                 type: 'DELETE',
+				beforeSend: corona.basicAuth,
                 success: function() {
                     ok(true, "Deleted the anonymous place");
                     removeNextItem();
@@ -298,11 +308,13 @@ corona.removePlaces = function(info, callback) {
             $.ajax({
                 url: url,
                 type: 'DELETE',
+				beforeSend: corona.basicAuth,
                 success: function() {
                     ok(true, "Deleted the place: " + place.name);
                     asyncTest("Check to make sure the place is gone", function() {
                         $.ajax({
                             url: url,
+							beforeSend: corona.basicAuth,
                             success: function(data) {
                                 ok(false, "Place still exists");
                             },
@@ -362,12 +374,14 @@ corona.addNamespaces = function(callback) {
                 url: url,
                 data: data,
                 type: "POST",
+				beforeSend: corona.basicAuth,
                 success: function() {
                     if(namespace.shouldSucceed) {
                         ok(true, "Namespace was created");
                         asyncTest("Checking to make sure the namespace was created correctly", function() {
                             $.ajax({
                                 url: url,
+								beforeSend: corona.basicAuth,
                                 success: function(info) {
                                     equal(namespace.prefix, info.prefix, "Namespace prefixes matches");
                                     equal(namespace.uri, info.uri, "Namespace uris matches");
@@ -634,12 +648,14 @@ corona.addRangeIndexes = function(callback) {
                 url: url,
                 data: data,
                 type: "POST",
+				beforeSend: corona.basicAuth,
                 success: function() {
                     if(index.shouldSucceed) {
                         ok(true, "Range index was created");
                         asyncTest("Checking to make sure the range index was created correctly", function() {
                             $.ajax({
                                 url: url,
+								beforeSend: corona.basicAuth,
                                 success: function(info) {
                                     compareIndexes(index, info);
                                 },
@@ -711,6 +727,7 @@ corona.addTransformers = function(callback) {
                 url: url,
                 data: data,
                 type: "PUT",
+				beforeSend: corona.basicAuth,
                 success: function() {
                     if(transformer.shouldSucceed) {
                         ok(true, "Transformer was created");
@@ -892,6 +909,7 @@ corona.addPlaces = function(callback) {
             $.ajax({
                 url: url,
                 type: "PUT",
+				beforeSend: corona.basicAuth,
                 success: function() {
                     if(place.shouldSucceed) {
                         ok(true, "Place " + place.name + " was created");
@@ -926,12 +944,14 @@ corona.addPlaces = function(callback) {
                                     url: url,
                                     data: data,
                                     type: "POST",
+									beforeSend: corona.basicAuth,
                                     success: function(data) {
                                         ok(item.shouldSucceed, "Item was added to place");
                                         if(pos === place.places.length - 1) {
                                             asyncTest("Checking to make sure the place items were created correctly", function() {
                                                 $.ajax({
                                                     url: url,
+													beforeSend: corona.basicAuth,
                                                     success: function(info) {
                                                         $(place.places).each(function(index, configItem) {
                                                             if(configItem.shouldSucceed === false) {
@@ -1101,6 +1121,7 @@ corona.addGeoIndexes = function(callback) {
                 url: url,
                 data: data,
                 type: "POST",
+				beforeSend: corona.basicAuth,
                 success: function() {
                     if(geoIndex.shouldSucceed) {
                         ok(true, "Geo index " + geoIndex.name + " was created");
@@ -1108,6 +1129,7 @@ corona.addGeoIndexes = function(callback) {
                         asyncTest("Checking to make sure the geo index was created correctly", function() {
                             $.ajax({
                                 url: url,
+								beforeSend: corona.basicAuth,
                                 success: function(info) {
                                     if(geoIndex.key) { equals(geoIndex.key, info.key, "Key matches"); }
                                     if(geoIndex.element) { equals(geoIndex.element, info.element, "Element matches"); }
@@ -1151,6 +1173,7 @@ $(document).ready(function() {
     asyncTest("Database index setup", function() {
         $.ajax({
             url: '/manage',
+			beforeSend: corona.basicAuth,
             success: function(info) {
                 corona.removeTransformers(info, function() {
                     corona.removeRangeIndexes(info, function() {
