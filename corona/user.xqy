@@ -115,11 +115,11 @@ return common:output(try {
 		else if(exists($sessionToken))
 		then
 			if(exists($userId))
-			then user:deleteByIdAsAdmin($userId, $sessionToken)
+			then user:deleteByIdViaToken($userId, $sessionToken)
 			else if(exists($username))
-			then user:deleteByUsernameAsAdmin($username, $sessionToken)
+			then user:deleteByUsernameViaToken($username, $sessionToken)
 			else if(exists($email))
-			then user:deleteByEmailAsAdmin($email, $sessionToken)
+			then user:deleteByEmailViaToken($email, $sessionToken)
 			else error(xs:QName("corona:MISSING-PARAMETER"), "Users may be deleted by their userId, username or email")
 		else error(xs:QName("corona:MISSING-PARAMETER"), "Deleting a user requires either the user password or an app admin session token")
 

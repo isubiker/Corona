@@ -909,17 +909,11 @@ declare private function store:getDocumentPermissions(
 		), <options xmlns="xdmp:eval"><database>{ xdmp:security-database() }</database></options>)
 
 		for $roleName in map:keys($permMap)
-		let $type :=
-			if(starts-with($roleName, "corona::"))
-			then "group"
-			else if(starts-with($roleName, "coronauser::"))
-			then "user"
-			else ()
-		let $name := substring-after($roleName, "::")
+		let $typeAndName := common:roleToGroupOrUser($roleName)
 		return
 			if($outputFormat = "json")
-			then json:object(("name", $name, "type", $type, "permissions", json:array(map:get($permMap, $roleName))))
-			else <corona:entity type="{ $type }">{
+			then json:object(("name", $typeAndName[2], "type", $typeAndName[1], "permissions", json:array(map:get($permMap, $roleName))))
+			else <corona:entity type="{ $typeAndName[1] }" name="{ $typeAndName[2] }">{
 				for $perm in map:get($permMap, $roleName)
 				return <corona:permission>{ $perm }</corona:permission>
 			}</corona:entity>

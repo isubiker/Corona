@@ -18,6 +18,7 @@ xquery version "1.0-ml";
 
 import module namespace template="http://marklogic.com/corona/template" at "/corona/htools/template.xqy";
 import module namespace common="http://marklogic.com/corona/common" at "/corona/lib/common.xqy";
+import module namespace const="http://marklogic.com/corona/constants" at "/corona/lib/constants.xqy";
 import module namespace sec="http://marklogic.com/xdmp/security" at "/MarkLogic/security.xqy";
 import module namespace admin="http://marklogic.com/xdmp/admin" at "/MarkLogic/admin.xqy";
 
@@ -52,9 +53,6 @@ declare variable $publicPrivs := <privs>
     <priv>http://marklogic.com/xdmp/privileges/role-set-default-permissions</priv>
     <priv>http://marklogic.com/xdmp/privileges/user-set-default-permissions</priv>
     <priv>http://marklogic.com/xdmp/privileges/xdmp-email</priv>
-</privs>;
-
-declare variable $appAdminPrivs := <privs>
 </privs>;
 
 declare variable $adminPrivileges := <privs>
@@ -180,7 +178,7 @@ declare function local:setupErrorHandler(
 declare function local:setupPublicRoleAndUser(
 ) as xs:boolean
 {
-	let $create := local:setupRole("corona::public", "Corona Public", $publicPrivs, ())
+	let $create := local:setupRole($const:PublicRole, "Corona Public", $publicPrivs, ())
 	return
 		if(sec:user-exists("corona"))
 		then false()
@@ -189,9 +187,9 @@ declare function local:setupPublicRoleAndUser(
 			xdmp:eval('
 				import module namespace sec="http://marklogic.com/xdmp/security" at "/MarkLogic/security.xqy";
 
-				sec:create-user("corona", "Default Corona User", xs:string(xdmp:random()), "corona::public", (
-					xdmp:permission("corona::public", "read"),
-					xdmp:permission("corona::public", "update")
+				sec:create-user("corona", "Default Corona User", xs:string(xdmp:random()), $const:PublicRole, (
+					xdmp:permission($const:PublicRole, "read"),
+					xdmp:permission($const:PublicRole, "update")
 				), ())
 			', ())
 		)[1]
@@ -219,10 +217,10 @@ declare function local:setupAuth(
 declare function local:migrateRoles(
 ) as xs:boolean
 {
-	if(exists(local:role("corona-dev")) and empty(local:role("corona::public")))
+	if(exists(local:role("corona-dev")) and empty(local:role($const:PublicRole)))
 	then (
 		true(),
-		sec:role-set-name("corona-dev", "corona::public")
+		sec:role-set-name("corona-dev", $const:PublicRole)
 	)
 	else false()
 };
@@ -234,7 +232,7 @@ then ()
 else if((local:setupRewriter(), local:setupErrorHandler()) = true())
 then xdmp:redirect-response("/config/setup")
 
-else if(exists(local:role("corona::public")) and exists(local:user("corona")) and local:setupAuth() = true())
+else if(exists(local:role($const:PublicRole)) and exists(local:user("corona")) and local:setupAuth() = true())
 then xdmp:redirect-response("/config/setup")
 
 else if(xdmp:database() != xdmp:database("Security"))
@@ -247,7 +245,17 @@ else if(local:setupPublicRoleAndUser() = true())
 then xdmp:redirect-response("/config/setup")
 else
 
-let $setup := local:setupRole("corona::app-admin", "Application Administrators", $appAdminPrivs, "corona::public")
+(: User roles :)
+let $setup := local:setupRole($const:AdminUsersGroupsRole, "User Groups Administrators", <privs/>, $const:PublicRole)
+let $setup := local:setupRole($const:AdminUsersDeleteRole, "Delete User Administrators", <privs/>, $const:PublicRole)
+let $setup := local:setupRole($const:AdminUsersRole, "User Administrators", <privs/>, ($const:AdminUsersGroupsRole, $const:AdminUsersDeleteRole))
+
+(: Store roles :)
+let $setup := local:setupRole($const:AdminStoreRole, "Store Administrators", <privs/>, ())
+
+(: Public role :)
+let $setup := local:setupRole($const:AdminRole, "Application Administrators", <privs/>, $const:PublicRole)
+
 let $setup := local:setupRole("corona-admin", "Corona Administrators", $adminPrivileges, ())
 
 let $createUsers := xs:boolean((xdmp:get-request-field("createUsers", "false"))[1])
@@ -266,8 +274,8 @@ return
     if(exists($adminName) and exists($adminPass))
     then
         let $set := sec:create-user($adminName, "Default Corona User", $adminPass, "corona-admin", (
-				xdmp:permission("corona::public", "read"),
-				xdmp:permission("corona::public", "update")
+				xdmp:permission($const:PublicRole, "read"),
+				xdmp:permission($const:PublicRole, "update")
 			), ())
         return template:apply(<div><p>Corona has been fully setup and an administrative account exist.</p></div>, "Corona Setup", (), 0, ())
     else if($createUsers)

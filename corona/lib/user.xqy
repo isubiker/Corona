@@ -142,7 +142,7 @@ declare function user:createUser(
 		then error(xs:QName("corona:USER-EXISTS"), concat("A user with the username '", $username, "' exists"))
 		else ()
 	let $test :=
-		if(exists($groups) and user:isAdminToken($sessionToken) = false())
+		if(exists($groups) and user:tokenHasPermission($sessionToken, $const:AdminUsersGroupsRole) = false())
 		then error(xs:QName("corona:INSUFFICIENT-PERMISSIONS"), "Must be an administrator to create a user in specific groups")
 		else ()
 
@@ -152,15 +152,17 @@ declare function user:createUser(
 	(: Create the user first :)
 	let $userId :=
 		xdmp:eval('
+			import module namespace const="http://marklogic.com/corona/constants" at "/corona/lib/constants.xqy";
+			import module namespace common="http://marklogic.com/corona/common" at "/corona/lib/common.xqy";
 			import module namespace sec="http://marklogic.com/xdmp/security" at "/MarkLogic/security.xqy";
 			declare variable $username as xs:string external;
 			declare variable $password as xs:string external;
 			declare variable $groups as element(groups) external;
 
-			let $groups := ("corona::public", for $group in $groups where string-length($group) return concat("corona::", string($group)))
+			let $groups := ($const:PublicRole, for $group in $groups where string-length($group) return common:groupToRole(string($group)))
 			let $userId := sec:create-user($username, (), $password, $groups, (), ())
 			let $userGroupName := concat("coronauser::", $userId)
-			let $create := sec:create-role($userGroupName, (), "corona::public", (), ())
+			let $create := sec:create-role($userGroupName, (), $const:PublicRole, (), ())
 			return $userId
 		', (xs:QName("username"), $securityUsername, xs:QName("password"), $password, xs:QName("groups"), $groups),
 		<options xmlns="xdmp:eval"><database>{ xdmp:database("Security") }</database></options>)
@@ -286,18 +288,19 @@ declare function user:setGroups(
 {
 	let $userDoc := user:getById($userId)
 	let $test :=
-		if(exists($groups) and user:isAdminToken($sessionToken) = false())
+		if(exists($groups) and user:tokenHasPermission($sessionToken, $const:AdminUsersGroupsRole) = false())
 		then error(xs:QName("corona:INSUFFICIENT-PERMISSIONS"), "Must be an administrator to modify the groups a user is in")
 		else ()
 
-	let $roles := <roles>{ for $group in $groups where string-length($group) return <role>{ concat("corona::", $group) }</role> }</roles>
+	let $roles := <roles>{ for $group in $groups where string-length($group) return <role>{ common:groupToRole($group) }</role> }</roles>
 	let $set :=
 		xdmp:eval('
+			import module namespace const="http://marklogic.com/corona/constants" at "/corona/lib/constants.xqy";
 			import module namespace sec="http://marklogic.com/xdmp/security" at "/MarkLogic/security.xqy";
 			declare variable $username as xs:string external;
 			declare variable $roles as element(roles) external;
 
-			let $roles := ("corona::pubic", for $role in $roles return string($role))
+			let $roles := ($const:PublicRole, for $role in $roles return string($role))
 			return sec:user-set-roles($username, $roles)
 		', (xs:QName("username"), string($userDoc/@securityUsername), xs:QName("roles"), $roles),
 		<options xmlns="xdmp:eval"><database>{ xdmp:database("Security") }</database></options>)
@@ -312,18 +315,19 @@ declare function user:addGroups(
 {
 	let $userDoc := user:getById($userId)
 	let $test :=
-		if(exists($groups) and user:isAdminToken($sessionToken) = false())
+		if(exists($groups) and user:tokenHasPermission($sessionToken, $const:AdminUsersGroupsRole) = false())
 		then error(xs:QName("corona:INSUFFICIENT-PERMISSIONS"), "Must be an administrator to modify the groups a user is in")
 		else ()
 
-	let $roles := <roles>{ for $group in $groups where string-length($group) return <role>{ concat("corona::", $group) }</role> }</roles>
+	let $roles := <roles>{ for $group in $groups where string-length($group) return <role>{ common:groupToRole($group) }</role> }</roles>
 	let $set :=
 		xdmp:eval('
+			import module namespace const="http://marklogic.com/corona/constants" at "/corona/lib/constants.xqy";
 			import module namespace sec="http://marklogic.com/xdmp/security" at "/MarkLogic/security.xqy";
 			declare variable $username as xs:string external;
 			declare variable $roles as element(roles) external;
 
-			let $roles := for $role in $roles where $role != "corona::public" return string($role)
+			let $roles := for $role in $roles where $role != $const:PublicRole return string($role)
 			return sec:user-add-roles($username, $roles)
 		', (xs:QName("username"), string($userDoc/@securityUsername), xs:QName("roles"), $roles),
 		<options xmlns="xdmp:eval"><database>{ xdmp:database("Security") }</database></options>)
@@ -338,18 +342,19 @@ declare function user:removeGroups(
 {
 	let $userDoc := user:getById($userId)
 	let $test :=
-		if(exists($groups) and user:isAdminToken($sessionToken) = false())
+		if(exists($groups) and user:tokenHasPermission($sessionToken, $const:AdminUsersGroupsRole) = false())
 		then error(xs:QName("corona:INSUFFICIENT-PERMISSIONS"), "Must be an administrator to modify the groups a user is in")
 		else ()
 
-	let $roles := <roles>{ for $group in $groups where string-length($group) return <role>{ concat("corona::", $group) }</role> }</roles>
+	let $roles := <roles>{ for $group in $groups where string-length($group) return <role>{ common:groupToRole($group) }</role> }</roles>
 	let $set :=
 		xdmp:eval('
+			import module namespace const="http://marklogic.com/corona/constants" at "/corona/lib/constants.xqy";
 			import module namespace sec="http://marklogic.com/xdmp/security" at "/MarkLogic/security.xqy";
 			declare variable $username as xs:string external;
 			declare variable $roles as element(roles) external;
 
-			let $roles := for $role in $roles where $role != "corona::public" return string($role)
+			let $roles := for $role in $roles where $role != $const:PublicRole return string($role)
 			return sec:user-remove-roles($username, $roles)
 		', (xs:QName("username"), string($userDoc/@securityUsername), xs:QName("roles"), $roles),
 		<options xmlns="xdmp:eval"><database>{ xdmp:database("Security") }</database></options>)
@@ -411,7 +416,7 @@ declare function user:deleteByEmail(
 	return user:deleteByUserDoc($userDoc)
 };
 
-declare function user:deleteByIdAsAdmin(
+declare function user:deleteByIdViaToken(
 	$userId as xs:string,
 	$sessionToken as xs:string
 ) as empty-sequence()
@@ -423,13 +428,13 @@ declare function user:deleteByIdAsAdmin(
 		else ()
 	let $adminUserDoc := user:getBySessionToken($sessionToken)
 	let $test :=
-		if(user:isAdmin($userDoc))
+		if(user:hasPermission($userDoc, $const:AdminUsersDeleteRole))
 		then error(xs:QName("corona:USER-IS-NOT-ADMIN"), concat("The user with session token '", $sessionToken, "' is not an app admin"))
 		else ()
 	return user:deleteByUserDoc($userDoc)
 };
 
-declare function user:deleteByUsernameAsAdmin(
+declare function user:deleteByUsernameViaToken(
 	$username as xs:string,
 	$sessionToken as xs:string
 ) as empty-sequence()
@@ -441,13 +446,13 @@ declare function user:deleteByUsernameAsAdmin(
 		else ()
 	let $adminUserDoc := user:getBySessionToken($sessionToken)
 	let $test :=
-		if(user:isAdmin($userDoc))
+		if(user:hasPermission($userDoc, $const:AdminUsersDeleteRole))
 		then error(xs:QName("corona:USER-IS-NOT-ADMIN"), concat("The user with session token '", $sessionToken, "' is not an app admin"))
 		else ()
 	return user:deleteByUserDoc($userDoc)
 };
 
-declare function user:deleteByEmailAsAdmin(
+declare function user:deleteByEmailViaToken(
 	$email as xs:string,
 	$sessionToken as xs:string
 ) as empty-sequence()
@@ -459,26 +464,28 @@ declare function user:deleteByEmailAsAdmin(
 		else ()
 	let $adminUserDoc := user:getBySessionToken($sessionToken)
 	let $test :=
-		if(user:isAdmin($userDoc))
+		if(user:hasPermission($userDoc, $const:AdminUsersDeleteRole))
 		then error(xs:QName("corona:USER-IS-NOT-ADMIN"), concat("The user with session token '", $sessionToken, "' is not an app admin"))
 		else ()
 	return user:deleteByUserDoc($userDoc)
 };
 
 
-declare function user:isAdmin(
-	$userDoc as element(corona:user)?
+declare function user:hasPermission(
+	$userDoc as element(corona:user)?,
+	$group as xs:string
 ) as xs:boolean
 {
-	xdmp:user-roles($userDoc/@securityUsername) = xdmp:role($const:AppAdminRole) or common:isCoronaAdmin()
+	xdmp:user-roles($userDoc/@securityUsername) = xdmp:role(if(starts-with($group, "corona::")) then $group else common:groupToRole($group)) or common:isCoronaAdmin()
 };
 
-declare function user:isAdminToken(
-	$sessionToken as xs:string?
+declare function user:tokenHasPermission(
+	$sessionToken as xs:string?,
+	$group as xs:string
 ) as xs:boolean
 {
 	if(exists($sessionToken))
-	then xdmp:user-roles(user:getBySessionToken($sessionToken)/@securityUsername) = xdmp:role($const:AppAdminRole) or common:isCoronaAdmin()
+	then user:hasPermission(user:getBySessionToken($sessionToken), $group)
 	else common:isCoronaAdmin()
 };
 

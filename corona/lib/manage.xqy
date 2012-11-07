@@ -1938,15 +1938,15 @@ declare function manage:groupExists(
     $groupName as xs:string
 ) as xs:boolean
 {
-	exists(common:role(concat("corona::", $groupName)))
+	exists(common:role(common:groupToRole($groupName)))
 };
 
 declare function manage:getGroup(
     $groupName as xs:string
 ) as element(json:item)?
 {
-	let $fullName := concat("corona::", $groupName)
-	let $subgroups := xdmp:role-roles($fullName)
+	let $role := common:groupToRole($groupName)
+	let $subgroups := xdmp:role-roles($role)
 	let $subgroupNames :=
 		if(exists($subgroups))
 		then xdmp:eval('
@@ -1957,7 +1957,7 @@ declare function manage:getGroup(
 			let $roleName := sec:get-role-names(xs:unsignedLong($role))
 			where starts-with($roleName, "corona::")
 			return substring($roleName, 9)
-        ', (xs:QName("role"), $fullName), <options xmlns="xdmp:eval"><database>{ xdmp:database("Security") }</database></options>)
+        ', (xs:QName("role"), $role), <options xmlns="xdmp:eval"><database>{ xdmp:database("Security") }</database></options>)
 		else ()
 	return json:object((
 		"groupName", $groupName,
@@ -1985,9 +1985,13 @@ declare function manage:addGroupSubsgroups(
 	$subgroupNames as xs:string*
 ) as empty-sequence()
 {
-	let $fullName := concat("corona::", $groupName)
+	let $role := common:groupToRole($groupName)
 	for $subgroupName in $subgroupNames
-	let $subRole := concat("corona::", $subgroupName)
+	let $subRole := common:groupToRole($subgroupName)
+	let $test :=
+		if($role = $const:ProtectedRoles and $subRole = $const:ProtectedRoles)
+		then error(xs:QName("corona:PROTECTED-GROUP"), concat("The group '", $groupName, "' is protected and cannot have '", $subgroupName, "' added to it."))
+		else ()
 	return xdmp:eval('
 			import module namespace common="http://marklogic.com/corona/common" at "/corona/lib/common.xqy";
             import module namespace sec="http://marklogic.com/xdmp/security" at "/MarkLogic/security.xqy";
@@ -1996,7 +2000,7 @@ declare function manage:addGroupSubsgroups(
 
 			let $login := common:isCoronaAdmin()
 			return sec:role-add-roles($role, $subRole)
-        ', (xs:QName("role"), $fullName, xs:QName("subRole"), $subRole), <options xmlns="xdmp:eval"><database>{ xdmp:database("Security") }</database></options>)
+        ', (xs:QName("role"), $role, xs:QName("subRole"), $subRole), <options xmlns="xdmp:eval"><database>{ xdmp:database("Security") }</database></options>)
 };
 
 declare function manage:removeGroupSubgroups(
@@ -2004,9 +2008,13 @@ declare function manage:removeGroupSubgroups(
 	$subgroupNames as xs:string*
 ) as empty-sequence()
 {
-	let $fullName := concat("corona::", $groupName)
+	let $role := common:groupToRole($groupName)
 	for $subgroupName in $subgroupNames
-	let $subRole := concat("corona::", $subgroupName)
+	let $subRole := common:groupToRole($subgroupName)
+	let $test :=
+		if($role = $const:ProtectedRoles and $subRole = $const:ProtectedRoles)
+		then error(xs:QName("corona:PROTECTED-GROUP"), concat("The group '", $groupName, "' is protected and cannot have '", $subgroupName, "' removed from it."))
+		else ()
 	return xdmp:eval('
 			import module namespace common="http://marklogic.com/corona/common" at "/corona/lib/common.xqy";
             import module namespace sec="http://marklogic.com/xdmp/security" at "/MarkLogic/security.xqy";
@@ -2015,7 +2023,7 @@ declare function manage:removeGroupSubgroups(
 
 			let $login := common:isCoronaAdmin()
 			return sec:role-remove-roles($role, $subRole)
-        ', (xs:QName("role"), $fullName, xs:QName("subRole"), $subRole), <options xmlns="xdmp:eval"><database>{ xdmp:database("Security") }</database></options>)
+        ', (xs:QName("role"), $role, xs:QName("subRole"), $subRole), <options xmlns="xdmp:eval"><database>{ xdmp:database("Security") }</database></options>)
 };
 
 declare function manage:addGroup(
@@ -2023,14 +2031,21 @@ declare function manage:addGroup(
 	$parentGroups as xs:string*
 ) as empty-sequence()
 {
-	let $fullName := concat("corona::", $groupName)
+	let $role := common:groupToRole($groupName)
+	let $test :=
+		if(exists(common:role($role)))
+		then error(xs:QName("corona:GROUP-EXISTS"), concat("There is already a group named '", $groupName, "'"))
+		else ()
 	let $parentRoles := <roles>{(
 		for $parentGroup in $parentGroups
-		let $roleName := concat("corona::", $parentGroup)
-		where exists(common:role($roleName))
-		return <role>{ $roleName }</role>
+		let $parentRole := common:groupToRole($parentGroup)
+		let $test :=
+			if(exists(common:role($parentRole)))
+			then error(xs:QName("corona:GROUP-DOES-NOT-EXIST"), concat("There is no group named '", $parentGroup, "' to assign as a parent group"))
+			else ()
+		return <role>{ $parentRole }</role>
 		,
-		<role>corona::public</role>
+		<role>{ $const:PublicRole }</role>
 	)}</roles>
 	let $set := xdmp:eval('
 			import module namespace common="http://marklogic.com/corona/common" at "/corona/lib/common.xqy";
@@ -2041,7 +2056,7 @@ declare function manage:addGroup(
 			let $login := common:isCoronaAdmin()
 			let $parentRoles := for $parentRole in $parentRoles/* return string($parentRole)
 			return sec:create-role($role, (), $parentRoles, (), ())
-        ', (xs:QName("role"), $fullName, xs:QName("parentRoles"), $parentRoles), <options xmlns="xdmp:eval"><database>{ xdmp:database("Security") }</database></options>)
+        ', (xs:QName("role"), $role, xs:QName("parentRoles"), $parentRoles), <options xmlns="xdmp:eval"><database>{ xdmp:database("Security") }</database></options>)
 	return ()
 };
 
@@ -2049,7 +2064,15 @@ declare function manage:removeGroup(
 	$groupName as xs:string
 ) as empty-sequence()
 {
-	let $fullName := concat("corona::", $groupName)
+	let $role := common:groupToRole($groupName)
+	let $test :=
+		if(empty(common:role($role)))
+		then error(xs:QName("corona:GROUP-DOES-NOT-EXIST"), concat("There is no group named '", $groupName, "'"))
+		else ()
+	let $test :=
+		if($role = $const:ProtectedRoles)
+		then error(xs:QName("corona:PROTECTED-GROUP"), concat("The group '", $groupName, "' is protected and cannot be removed."))
+		else ()
 	return xdmp:eval('
 			import module namespace common="http://marklogic.com/corona/common" at "/corona/lib/common.xqy";
             import module namespace sec="http://marklogic.com/xdmp/security" at "/MarkLogic/security.xqy";
@@ -2057,5 +2080,5 @@ declare function manage:removeGroup(
 
 			let $login := common:isCoronaAdmin()
 			return sec:remove-role($role)
-        ', (xs:QName("role"), $fullName), <options xmlns="xdmp:eval"><database>{ xdmp:database("Security") }</database></options>)
+        ', (xs:QName("role"), $role), <options xmlns="xdmp:eval"><database>{ xdmp:database("Security") }</database></options>)
 };

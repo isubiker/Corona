@@ -145,17 +145,6 @@ declare function common:errorFromException(
     )
 };
 
-declare function common:roleToGroupOrUser(
-	$role as xs:string*
-) as xs:string*
-{
-	if(starts-with($role, "corona::"))
-	then ("group", substring-after($role, "corona::"))
-	else if(starts-with($role, "coronauser::"))
-	then ("user", substring-after($role, "coronauser::"))
-	else ()
-};
-
 declare function common:output(
     $item as item()?
 ) as item()?
@@ -499,4 +488,22 @@ declare function common:role(
 	catch ($e) {
 		()
 	}
+};
+
+declare function common:groupToRole(
+	$groupName as xs:string
+) as xs:string
+{
+	concat("corona::", $groupName)
+};
+
+declare function common:roleToGroupOrUser(
+	$role as xs:string*
+) as xs:string*
+{
+	if(starts-with($role, "corona::"))
+	then ("group", substring-after($role, "corona::"))
+	else if(starts-with($role, "coronauser::"))
+	then ("user", substring-after($role, "coronauser::"))
+	else ()
 };
