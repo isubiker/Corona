@@ -1941,28 +1941,34 @@ declare function manage:groupExists(
 	exists(common:role(common:groupToRole($groupName)))
 };
 
+(: XXX - return the URIPrefixes as well :)
 declare function manage:getGroup(
     $groupName as xs:string
 ) as element(json:item)?
 {
-	let $role := common:groupToRole($groupName)
-	let $subgroups := xdmp:role-roles($role)
-	let $subgroupNames :=
-		if(exists($subgroups))
-		then xdmp:eval('
-            import module namespace sec="http://marklogic.com/xdmp/security" at "/MarkLogic/security.xqy";
-            declare variable $role as xs:string external;
+	xdmp:eval('
+		import module namespace sec="http://marklogic.com/xdmp/security" at "/MarkLogic/security.xqy";
+		import module namespace json="http://marklogic.com/json" at "/corona/lib/json.xqy";
+		declare variable $role as xs:string external;
+		declare variable $groupName as xs:string external;
 
+		let $subgroupNames :=
 			for $role in xdmp:role-roles($role)
 			let $roleName := sec:get-role-names(xs:unsignedLong($role))
 			where starts-with($roleName, "corona::")
 			return substring($roleName, 9)
-        ', (xs:QName("role"), $role), <options xmlns="xdmp:eval"><database>{ xdmp:database("Security") }</database></options>)
-		else ()
-	return json:object((
-		"groupName", $groupName,
-		"subgroups", json:array($subgroupNames)
-	))
+		let $URIPrefixes :=
+			for $URIPriv in sec:role-privileges($role)
+			let $URIPrefix := string($URIPriv/sec:action)
+			let $existingRoles := if($URIPriv/sec:kind = "uri") then sec:privilege-get-roles($URIPrefix, "uri") else ()
+			where $URIPriv/sec:kind = "uri" and starts-with($URIPriv/sec:privilege-name, "corona::")
+			return $URIPrefix
+		return json:object((
+			"groupName", $groupName,
+			"subgroups", json:array($subgroupNames),
+			"URIPrefixes", json:array($URIPrefixes)
+		))
+	', (xs:QName("role"), common:groupToRole($groupName), xs:QName("groupName"), $groupName), <options xmlns="xdmp:eval"><database>{ xdmp:database("Security") }</database></options>)
 };
 
 declare function manage:getGroups(
@@ -1986,8 +1992,16 @@ declare function manage:addGroupSubsgroups(
 ) as empty-sequence()
 {
 	let $role := common:groupToRole($groupName)
+	let $test :=
+		if(empty(common:role($role)))
+		then error(xs:QName("corona:GROUP-DOES-NOT-EXIST"), concat("There is no group named '", $groupName, "'"))
+		else ()
 	for $subgroupName in $subgroupNames
 	let $subRole := common:groupToRole($subgroupName)
+	let $test :=
+		if(empty(common:role($subRole)))
+		then error(xs:QName("corona:GROUP-DOES-NOT-EXIST"), concat("There is no group named '", $subgroupName, "'"))
+		else ()
 	let $test :=
 		if($role = $const:ProtectedRoles and $subRole = $const:ProtectedRoles)
 		then error(xs:QName("corona:PROTECTED-GROUP"), concat("The group '", $groupName, "' is protected and cannot have '", $subgroupName, "' added to it."))
@@ -2009,8 +2023,16 @@ declare function manage:removeGroupSubgroups(
 ) as empty-sequence()
 {
 	let $role := common:groupToRole($groupName)
+	let $test :=
+		if(empty(common:role($role)))
+		then error(xs:QName("corona:GROUP-DOES-NOT-EXIST"), concat("There is no group named '", $groupName, "'"))
+		else ()
 	for $subgroupName in $subgroupNames
 	let $subRole := common:groupToRole($subgroupName)
+	let $test :=
+		if(empty(common:role($subRole)))
+		then error(xs:QName("corona:GROUP-DOES-NOT-EXIST"), concat("There is no group named '", $subgroupName, "'"))
+		else ()
 	let $test :=
 		if($role = $const:ProtectedRoles and $subRole = $const:ProtectedRoles)
 		then error(xs:QName("corona:PROTECTED-GROUP"), concat("The group '", $groupName, "' is protected and cannot have '", $subgroupName, "' removed from it."))
@@ -2026,9 +2048,65 @@ declare function manage:removeGroupSubgroups(
         ', (xs:QName("role"), $role, xs:QName("subRole"), $subRole), <options xmlns="xdmp:eval"><database>{ xdmp:database("Security") }</database></options>)
 };
 
-declare function manage:addGroup(
+
+
+declare function manage:addGroupURIPrefix(
 	$groupName as xs:string,
-	$parentGroups as xs:string*
+	$URIPrefixes as xs:string*
+) as empty-sequence()
+{
+	let $role := common:groupToRole($groupName)
+	let $test :=
+		if(empty(common:role($role)))
+		then error(xs:QName("corona:GROUP-DOES-NOT-EXIST"), concat("There is no group named '", $groupName, "'"))
+		else ()
+	for $URIPrefix in $URIPrefixes
+	return xdmp:eval('
+			import module namespace common="http://marklogic.com/corona/common" at "/corona/lib/common.xqy";
+            import module namespace sec="http://marklogic.com/xdmp/security" at "/MarkLogic/security.xqy";
+            declare variable $URIPrefix as xs:string external;
+            declare variable $role as xs:string external;
+
+			let $login := common:isCoronaAdmin()
+			return
+				if(sec:privilege-exists($URIPrefix, "uri"))
+				then sec:privilege-add-roles($URIPrefix, "uri", $role)
+				else sec:create-privilege(concat("corona::", string(xdmp:random())), $URIPrefix, "uri", $role)
+        ', (xs:QName("role"), $role, xs:QName("URIPrefix"), $URIPrefix), <options xmlns="xdmp:eval"><database>{ xdmp:database("Security") }</database></options>)
+};
+
+declare function manage:removeGroupURIPrefix(
+	$groupName as xs:string,
+	$URIPrefixes as xs:string*
+) as empty-sequence()
+{
+	let $role := common:groupToRole($groupName)
+	let $test :=
+		if(empty(common:role($role)))
+		then error(xs:QName("corona:GROUP-DOES-NOT-EXIST"), concat("There is no group named '", $groupName, "'"))
+		else ()
+	for $URIPrefix in $URIPrefixes
+	return xdmp:eval('
+			import module namespace common="http://marklogic.com/corona/common" at "/corona/lib/common.xqy";
+            import module namespace sec="http://marklogic.com/xdmp/security" at "/MarkLogic/security.xqy";
+            declare variable $URIPrefix as xs:string external;
+            declare variable $role as xs:string external;
+
+			let $login := common:isCoronaAdmin()
+			let $existingRoles := sec:privilege-get-roles($URIPrefix, "uri")
+			return
+				if(count($existingRoles, 2) = 1 and $existingRoles = $role)
+				then sec:remove-privilege($URIPrefix, "uri")
+				else if($existingRoles = $role)
+				then sec:privilege-remove-roles($URIPrefix, "uri", $role)
+				else ()
+        ', (xs:QName("role"), $role, xs:QName("URIPrefix"), $URIPrefix), <options xmlns="xdmp:eval"><database>{ xdmp:database("Security") }</database></options>)
+};
+
+declare function manage:createGroup(
+	$groupName as xs:string,
+	$parentGroups as xs:string*,
+	$URIPrefixes as xs:string*
 ) as empty-sequence()
 {
 	let $role := common:groupToRole($groupName)
@@ -2040,7 +2118,7 @@ declare function manage:addGroup(
 		for $parentGroup in $parentGroups
 		let $parentRole := common:groupToRole($parentGroup)
 		let $test :=
-			if(exists(common:role($parentRole)))
+			if(empty(common:role($parentRole)))
 			then error(xs:QName("corona:GROUP-DOES-NOT-EXIST"), concat("There is no group named '", $parentGroup, "' to assign as a parent group"))
 			else ()
 		return <role>{ $parentRole }</role>
@@ -2057,10 +2135,29 @@ declare function manage:addGroup(
 			let $parentRoles := for $parentRole in $parentRoles/* return string($parentRole)
 			return sec:create-role($role, (), $parentRoles, (), ())
         ', (xs:QName("role"), $role, xs:QName("parentRoles"), $parentRoles), <options xmlns="xdmp:eval"><database>{ xdmp:database("Security") }</database></options>)
+
+	let $URIPrefixes := <prefixes>{
+		for $URIPrefix in $URIPrefixes
+		return <prefix>{ $URIPrefix }</prefix>
+	}</prefixes>
+	let $set := xdmp:eval('
+			import module namespace common="http://marklogic.com/corona/common" at "/corona/lib/common.xqy";
+            import module namespace sec="http://marklogic.com/xdmp/security" at "/MarkLogic/security.xqy";
+            declare variable $role as xs:string external;
+            declare variable $URIPrefixes as element(prefixes) external;
+
+			let $login := common:isCoronaAdmin()
+			for $URIPrefix in $URIPrefixes/*
+			let $URIPrefix := string($URIPrefix)
+			return
+				if(sec:privilege-exists($URIPrefix, "uri"))
+				then sec:privilege-add-roles($URIPrefix, "uri", $role)
+				else sec:create-privilege(concat("corona::", string(xdmp:random())), $URIPrefix, "uri", $role)
+        ', (xs:QName("role"), $role, xs:QName("URIPrefixes"), $URIPrefixes), <options xmlns="xdmp:eval"><database>{ xdmp:database("Security") }</database></options>)
 	return ()
 };
 
-declare function manage:removeGroup(
+declare function manage:deleteGroup(
 	$groupName as xs:string
 ) as empty-sequence()
 {
@@ -2073,12 +2170,47 @@ declare function manage:removeGroup(
 		if($role = $const:ProtectedRoles)
 		then error(xs:QName("corona:PROTECTED-GROUP"), concat("The group '", $groupName, "' is protected and cannot be removed."))
 		else ()
+	let $removePrivs := xdmp:eval('
+			import module namespace common="http://marklogic.com/corona/common" at "/corona/lib/common.xqy";
+            import module namespace sec="http://marklogic.com/xdmp/security" at "/MarkLogic/security.xqy";
+            declare variable $groupName as xs:string external;
+            declare variable $role as xs:string external;
+
+			let $login := common:isCoronaAdmin()
+			return
+				for $URIPriv in sec:role-privileges($role)
+				let $URIPrefix := string($URIPriv/sec:action)
+				let $existingRoles := if($URIPriv/sec:kind = "uri") then sec:privilege-get-roles($URIPrefix, "uri") else ()
+				where $URIPriv/sec:kind = "uri" and starts-with($URIPriv/sec:privilege-name, "corona::")
+				return 
+					if(count($existingRoles, 2) = 1 and $existingRoles = $role)
+					then sec:remove-privilege($URIPrefix, "uri")
+					else ()
+        ', (xs:QName("groupName"), $groupName, xs:QName("role"), $role), <options xmlns="xdmp:eval"><database>{ xdmp:database("Security") }</database></options>)
 	return xdmp:eval('
 			import module namespace common="http://marklogic.com/corona/common" at "/corona/lib/common.xqy";
             import module namespace sec="http://marklogic.com/xdmp/security" at "/MarkLogic/security.xqy";
+            declare variable $groupName as xs:string external;
             declare variable $role as xs:string external;
 
 			let $login := common:isCoronaAdmin()
 			return sec:remove-role($role)
-        ', (xs:QName("role"), $role), <options xmlns="xdmp:eval"><database>{ xdmp:database("Security") }</database></options>)
+        ', (xs:QName("groupName"), $groupName, xs:QName("role"), $role), <options xmlns="xdmp:eval"><database>{ xdmp:database("Security") }</database></options>)
+};
+
+declare function manage:deleteAllGroups(
+) as empty-sequence()
+{
+	let $groupNames := xdmp:eval('
+            import module namespace sec="http://marklogic.com/xdmp/security" at "/MarkLogic/security.xqy";
+			import module namespace const="http://marklogic.com/corona/constants" at "/corona/lib/constants.xqy";
+
+			for $role in sec:get-role-ids()
+			let $roleName := sec:get-role-names(xs:unsignedLong($role))
+			where starts-with($roleName, "corona::") and not($roleName = $const:ProtectedRoles)
+			return substring($roleName, 9)
+        ', (), <options xmlns="xdmp:eval"><database>{ xdmp:database("Security") }</database></options>)
+	for $groupName in $groupNames
+	return manage:deleteGroup($groupName)
+
 };

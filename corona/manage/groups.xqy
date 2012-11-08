@@ -28,9 +28,14 @@ declare option xdmp:mapping "false";
 
 let $params := rest:process-request(endpoints:request("/corona/manage/groups.xqy"))
 let $groupName := map:get($params, "group")
-let $parentGroups := map:get($params, "parentGroups")
+let $parentGroup := map:get($params, "parentGroup")
 let $addSubgroup := map:get($params, "addSubgroup")
 let $removeSubgroup := map:get($params, "removeSubgroup")
+
+let $URIPrefix := map:get($params, "URIPrefix")
+let $addURIPrefix := map:get($params, "addURIPrefix")
+let $removeURIPrefix := map:get($params, "removeURIPrefix")
+
 let $requestMethod := xdmp:get-request-method()
 let $set := xdmp:set-response-code(if($requestMethod = "GET") then 200 else 204, "Group")
 
@@ -58,11 +63,17 @@ return common:output(
 				then manage:addGroupSubsgroups($groupName, $addSubgroup)
 				else if(string-length($removeSubgroup))
 				then manage:removeGroupSubgroups($groupName, $removeSubgroup)
+
+				else if(string-length($addURIPrefix))
+				then manage:addGroupURIPrefix($groupName, $addURIPrefix)
+				else if(string-length($removeURIPrefix))
+				then manage:removeGroupURIPrefix($groupName, $removeURIPrefix)
+
 				else common:error("corona:INVALID-PARAMETER", "This group already exists. Can specify a subgroup to add to it or remove from it.", "json")
 			else
 				if(not(matches($groupName, "^[A-Za-z][A-Za-z0-9_-]*$")))
 				then common:error("corona:INVALID-PARAMETER", "Invalid group name. Must start with a letter, be alphanumeric and can contain underscores and dashes.", "json")
-				else manage:addGroup($groupName, $parentGroups)
+				else manage:createGroup($groupName, $parentGroup, $URIPrefix)
         else common:error("corona:INVALID-PARAMETER", "Must specify a group", "json")
 
     else if($requestMethod = "DELETE")
@@ -70,9 +81,9 @@ return common:output(
         if(string-length($groupName))
         then
             if(manage:groupExists($groupName))
-            then manage:removeGroup($groupName)
+            then manage:deleteGroup($groupName)
             else common:error("corona:GROUP-NOT-FOUND", "Group not found", "json")
-        else common:error("corona:INVALID-PARAMETER", "Must specify a group", "json")
+        else manage:deleteAllGroups()
     else common:error("corona:UNSUPPORTED-METHOD", concat("Unsupported method: ", $requestMethod), "json")
 )
 

@@ -54,6 +54,8 @@ declare variable $publicPrivs := <privs>
     <priv>http://marklogic.com/xdmp/privileges/role-set-default-permissions</priv>
     <priv>http://marklogic.com/xdmp/privileges/user-set-default-permissions</priv>
     <priv>http://marklogic.com/xdmp/privileges/xdmp-email</priv>
+    <priv>http://marklogic.com/xdmp/privileges/role-privileges</priv>
+    <priv>http://marklogic.com/xdmp/privileges/privilege-get-roles</priv>
     <priv type="uri" name="corona-transformers-uri">_/transformers/</priv>
     <priv type="uri" name="corona-users-uri">_/user/</priv>
 </privs>;

@@ -338,9 +338,13 @@ declare variable $endpoints:ENDPOINTS as element(rest:options) :=
         <uri-param name="group" as="string">$2</uri-param>
         <http method="GET"/>
         <http method="POST">
-            <param name="parentGroups" required="false"/>
+            <param name="parentGroup" alias="parentGroup[]" repeatable="true" required="false"/>
             <param name="addSubgroup" alias="addSubgroup[]" repeatable="true" required="false"/>
             <param name="removeSubgroup" alias="removeSubgroup[]" repeatable="true" required="false"/>
+
+            <param name="URIPrefix" alias="URIPrefix[]" repeatable="true" required="false"/>
+            <param name="addURIPrefix" alias="addURIPrefix[]" repeatable="true" required="false"/>
+            <param name="removeURIPrefix" alias="removeURIPrefix[]" repeatable="true" required="false"/>
 		</http>
         <http method="DELETE"/>
     </request>

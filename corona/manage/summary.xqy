@@ -61,6 +61,7 @@ return common:output(
                     "name", xdmp:host-name($host)
                 ))
             )),
+			"groups", json:array(manage:getGroups()),
             "env", manage:getEnvVars(),
             "indexes", json:object((
                 "stemming", admin:database-get-stemmed-searches($config, $database),
