@@ -1941,7 +1941,6 @@ declare function manage:groupExists(
 	exists(common:role(common:groupToRole($groupName)))
 };
 
-(: XXX - return the URIPrefixes as well :)
 declare function manage:getGroup(
     $groupName as xs:string
 ) as element(json:item)?

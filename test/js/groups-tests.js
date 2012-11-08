@@ -61,9 +61,9 @@ corona.groups.createGroup = function(groupName, parameters, runTests, baseCall) 
 		var origError = baseCall.error;
 		baseCall.success = function(data) {
 			ok(true, "Group '" + groupName + "' created");
-			corona.groups.getGroup(groupName, true, {
+			corona.groups.getGroup(groupName, true, parameters, {
 				success: origSuccess
-			}, {}); // XXX - pass arguments
+			});
 		};
 		baseCall.error = function(j, t, error) {
 			ok(false, "Group '" + groupName + "' created");
@@ -75,7 +75,14 @@ corona.groups.createGroup = function(groupName, parameters, runTests, baseCall) 
 	$.ajax(baseCall);
 };
 
-corona.groups.getGroup = function(groupName, runTests, baseCall, creationParams) {
+/*
+{
+	"groupName": "foo",
+	"subgroups": ["public","admin-store","admin-store-any-uri"],
+	"URIPrefixes": ["/articles/"]'
+}
+*/
+corona.groups.getGroup = function(groupName, runTests, creationParams, baseCall) {
 	baseCall.url = "/manage/group/" + groupName;
 	baseCall.type = "GET";
 	baseCall.beforeSend = corona.basicAuth;
@@ -86,7 +93,53 @@ corona.groups.getGroup = function(groupName, runTests, baseCall, creationParams)
 			ok(true, "Group '" + groupName + "' fetched");
 			equals(data.groupName, groupName, "Group name set to: " + groupName);
 			if(creationParams) {
-				// XXX - do the comparisons
+				if(creationParams.parentGroup && typeof creationParams.parentGroup === "string") {
+					var found = false;
+					var i;
+					for(i = 0; i < data.subgroups.length; i += 1) {
+						if(data.subgroups[i] === creationParams.parentGroup) {
+							found = true;
+						}
+					}
+					ok(found, "Group parent '" + creationParams.parentGroup + "' was found.");
+				}
+				else if(creationParams.parentGroup) {
+					var found = false;
+					var i;
+					var j;
+					for(i = 0; i < creationParams.parentGroup.length; i += 1) {
+						for(j = 0; j < data.subgroups.length; j += 1) {
+							if(creationParams.parentGroup[i] === data.subgroups[j]) {
+								found = true;
+							}
+						}
+						ok(found, "Group parent '" + creationParams.parentGroup[i] + "' was found.");
+					}
+				}
+
+				if(creationParams.URIPrefix && typeof creationParams.URIPrefix === "string") {
+					var found = false;
+					var i;
+					for(i = 0; i < data.URIPrefixes.length; i += 1) {
+						if(data.URIPrefixes[i] === creationParams.URIPrefix) {
+							found = true;
+						}
+					}
+					ok(found, "Group URI prefix '" + creationParams.URIPrefix + "' was found.");
+				}
+				else if(creationParams.URIPrefix) {
+					var found = false;
+					var i;
+					var j;
+					for(i = 0; i < creationParams.URIPrefix.length; i += 1) {
+						for(j = 0; j < data.URIPrefixes.length; j += 1) {
+							if(creationParams.URIPrefix[i] === data.URIPrefixes[j]) {
+								found = true;
+							}
+						}
+						ok(found, "Group URI prefix '" + creationParams.URIPrefix[i] + "' was found.");
+					}
+				}
 			}
 			if(origSuccess) {
 				origSuccess.call(this, data);
