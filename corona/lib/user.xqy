@@ -118,6 +118,7 @@ declare function user:resetPassword(
 	$method as xs:string
 ) as empty-sequence()
 {
+	(: XXX - actually set the password to something new :)
 	let $userDoc := user:getById($userId)
 	let $transformerName := manage:getEnvVar("resetPasswordMessageTransformer")
     let $transformer := manage:getTransformer($transformerName)
@@ -260,6 +261,7 @@ declare function user:updateUser(
 			<options xmlns="xdmp:eval"><database>{ xdmp:database("Security") }</database></options>)
 		else ()
 	let $update :=
+		(: XXX - send confirmation email address if changed :)
 		if(exists($email) and $userDoc/corona:primaryEmail/@address != $email)
 		then xdmp:node-replace($userDoc/corona:primaryEmail, user:constructEmailElement("primary", $email))
 		else ()

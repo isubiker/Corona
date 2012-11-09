@@ -341,7 +341,6 @@ declare variable $endpoints:ENDPOINTS as element(rest:options) :=
             <param name="parentGroup" alias="parentGroup[]" repeatable="true" required="false"/>
             <param name="addSubgroup" alias="addSubgroup[]" repeatable="true" required="false"/>
             <param name="removeSubgroup" alias="removeSubgroup[]" repeatable="true" required="false"/>
-
             <param name="URIPrefix" alias="URIPrefix[]" repeatable="true" required="false"/>
             <param name="addURIPrefix" alias="addURIPrefix[]" repeatable="true" required="false"/>
             <param name="removeURIPrefix" alias="removeURIPrefix[]" repeatable="true" required="false"/>

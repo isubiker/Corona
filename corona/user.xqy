@@ -81,8 +81,8 @@ return common:output(try {
     then
 		if(empty($userId) and exists($username) and exists($email) and exists($password))
 		then (
-			xdmp:set-response-code(201, "User created"),
-			user:outputUser(user:createUser($username, $email, $password, ($group, $addToGroup), $userDocument, $sessionToken), $outputFormat)
+			user:outputUser(user:createUser($username, $email, $password, ($group, $addToGroup), $userDocument, $sessionToken), $outputFormat),
+			xdmp:set-response-code(201, "User created")
 		)
 		else if(empty($userId))
 		then error(xs:QName("corona:MISSING-PARAMETER"), "Must supply a username, email and password when creating a user")
