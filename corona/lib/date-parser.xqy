@@ -278,10 +278,7 @@ declare function dateparser:parse(
     if($date castable as xs:dateTime)
     then xs:dateTime($date)
     else if($date castable as xs:date)
-	then
-		if(contains($date, ":"))
-		then xs:dateTime(xs:date($date))
-		else adjust-dateTime-to-timezone(xs:dateTime(xs:date($date)), implicit-timezone())
+	then xs:dateTime(xs:date($date))
     else if($regexSupported)
     then
         let $date := normalize-space($date)
@@ -337,10 +334,7 @@ declare private function dateparser:analyzedStringToDate(
 
     let $possibleDate := concat($year, "-", $month, "-", $day, "T", $hour, ":", $minute, ":", $second, $timezone)
     where $possibleDate castable as xs:dateTime
-    return
-        if($timezone = "")
-        then adjust-dateTime-to-timezone(xs:dateTime($possibleDate), implicit-timezone())
-        else xs:dateTime($possibleDate)
+    return xs:dateTime($possibleDate)
 };
 
 declare private function dateparser:adjustHourForMeridiem(

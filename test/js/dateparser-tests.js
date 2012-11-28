@@ -38,59 +38,59 @@ corona.dates = [
     },
     {
         "string": "08/20/2007 5:58:20 AM",
-        "value": "2007-08-20T05:58:20-07:00"
+        "value": "2007-08-20T05:58:20"
     },
     {
         "string": "08/20/2007 5:58:20 pm",
-        "value": "2007-08-20T17:58:20-07:00"
+        "value": "2007-08-20T17:58:20"
     },
     {
         "string": "08/20/2007 5:58:20 Pm",
-        "value": "2007-08-20T17:58:20-07:00"
+        "value": "2007-08-20T17:58:20"
     },
     {
         "string": "08/20/2007 5:58:20 P.m.",
-        "value": "2007-08-20T17:58:20-07:00"
+        "value": "2007-08-20T17:58:20"
     },
     {
         "string": "2011-07-07",
-        "value": "2011-07-07T00:00:00-07:00"
+        "value": "2011-07-07T00:00:00"
     },
     {
         "string": "08-20-2007",
-        "value": "2007-08-20T00:00:00-07:00"
+        "value": "2007-08-20T00:00:00"
     },
     {
         "string": "08-20-07",
-        "value": "2007-08-20T00:00:00-07:00"
+        "value": "2007-08-20T00:00:00"
     },
     {
         "string": "2007/08/20",
-        "value": "2007-08-20T00:00:00-07:00"
+        "value": "2007-08-20T00:00:00"
     },
     {
         "string": "08/20/2007",
-        "value": "2007-08-20T00:00:00-07:00"
+        "value": "2007-08-20T00:00:00"
     },
     {
         "string": "08/20/07",
-        "value": "2007-08-20T00:00:00-07:00"
+        "value": "2007-08-20T00:00:00"
     },
     {
         "string": "20070820",
-        "value": "2007-08-20T00:00:00-07:00"
+        "value": "2007-08-20T00:00:00"
     },
     {
         "string": "December 20, 2005",
-        "value": "2005-12-20T00:00:00-07:00"
+        "value": "2005-12-20T00:00:00"
     },
     {
         "string": "Dec 20th, 2005",
-        "value": "2005-12-20T00:00:00-07:00"
+        "value": "2005-12-20T00:00:00"
     },
     {
         "string": "September 1st, 2007",
-        "value": "2007-09-01T00:00:00-07:00"
+        "value": "2007-09-01T00:00:00"
     }
 ];
 
@@ -112,7 +112,7 @@ corona.jsonFromServer = function(test, success, error) {
     asyncTest("Parsing: " + test.string, function() {
         $.ajax({
             url: '/test/xq/parsedate.xqy',
-            data: {"date": test.string},
+            data: {"date": test.string, "value": test.value},
             method: 'GET',
             success: success,
             error: error,
@@ -124,7 +124,7 @@ corona.jsonFromServer = function(test, success, error) {
 corona.jsonFromServerTest = function(test) {
     corona.jsonFromServer(test,
         function(data, t, j) {
-            equals(data, test.value, "Parsed date doesn't match");
+            equals(data, "true", "Parsed correctly");
         },
         function(j, t, e) { ok(false, e); console.log(e); } 
     );
