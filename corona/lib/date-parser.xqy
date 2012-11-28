@@ -278,7 +278,10 @@ declare function dateparser:parse(
     if($date castable as xs:dateTime)
     then xs:dateTime($date)
     else if($date castable as xs:date)
-    then adjust-dateTime-to-timezone(xs:dateTime(concat($date, "T00:00:00")), implicit-timezone())
+	then
+		if(contains($date, ":"))
+		then xs:dateTime(xs:date($date))
+		else adjust-dateTime-to-timezone(xs:dateTime(xs:date($date)), implicit-timezone())
     else if($regexSupported)
     then
         let $date := normalize-space($date)

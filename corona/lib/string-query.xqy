@@ -199,8 +199,14 @@ declare private function stringquery:groupTokens(
         else if(local-name($token) = "constraint")
         then
             let $indexConfig := config:get($token/field)
+			let $type :=
+                if(exists($indexConfig[type = "date"]))
+				then "date"
+                else if(exists($indexConfig[type = "dateTime"]))
+				then "dateTime"
+				else ()
             return
-                if(exists($indexConfig[type = ("date", "dateTime")]))
+                if($type = ("date", "dateTime"))
                 then 
                     <constraint>{ $token/field }<value>{(
                         let $parsedDate := ()
@@ -216,7 +222,11 @@ declare private function stringquery:groupTokens(
                                     then concat($i/field, ":", $i/value)
                                     else ()
                             let $dateString := string-join(($token/value, $possibleTokens), " ")
-                            let $date := common:castFromJSONType($dateString, "date")
+							let $date := common:castFromJSONType($dateString, "date")
+                            let $date :=
+								if(exists($date) and $type = "date")
+								then xs:date($date)
+								else $date
                             return
                                 if(exists($date))
                                 then ($date, xdmp:set($parsedDate, $date), xdmp:set($GROUPING-INDEX, $index + $dateIndex - 1))
