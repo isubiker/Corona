@@ -243,6 +243,9 @@ declare function search:rangeIndexValues(
         then concat("limit=", $limit)
         else (),
         concat("type=", $xsType),
+		if($index/type = "string")
+		then concat("collation=http://marklogic.com/collation/", $index/collation)
+        else (),
         $options
     )
     let $values :=
@@ -300,6 +303,9 @@ declare function search:bucketIndexValues(
     let $options := (
         if(exists($limit))
         then concat("limit=", $limit)
+        else (),
+		if($index/type = "string")
+		then concat("collation=http://marklogic.com/collation/", $index/collation)
         else (),
         concat("type=", $xsType),
         $options
