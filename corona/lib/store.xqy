@@ -56,6 +56,8 @@ declare function store:outputRawDocument(
 		then user:outputUser($doc/corona:user, $outputFormat)
         else if($documentType = "text")
         then $doc/text()
+        else if($documentType = "binary")
+        then $doc/binary()
         else $doc
 
     (: Apply the transformation :)
