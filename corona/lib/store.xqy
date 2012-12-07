@@ -583,10 +583,8 @@ declare function store:insertBinaryDocument(
         then xdmp:document-set-properties($sidecarURI, $properties)
         else xdmp:document-set-properties($sidecarURI, ())
     let $insert := xdmp:document-insert($uri, $content, $permissions, $collections, $quality)
-    return
-        if($respondWithContent)
-        then $content
-        else ()
+	where $respondWithContent
+    return $content
 };
 
 declare function store:updateDocumentContent(
@@ -693,7 +691,11 @@ declare function store:getBinaryContentType(
     $doc as binary()
 ) as xs:string
 {
-    (doc(store:getSidecarURI(base-uri($doc)))/corona:sidecar/corona:meta/corona:contentType, "application/octet-stream")[1]
+	let $sidecarDoc := doc(store:getSidecarURI(base-uri($doc)))
+	return
+		if(exists($sidecarDoc))
+		then ($sidecarDoc/corona:sidecar/corona:meta/corona:contentType, "application/octet-stream")[1]
+		else xdmp:uri-content-type(base-uri($doc))
 };
 
 declare function store:createProperty(
@@ -1038,7 +1040,11 @@ declare private function store:createSidecarDocument(
             else store:unquoteXML($suppliedContent, false())
         else ()
     return <corona:sidecar type="binary" original="{ $documentURI }">
-        <corona:suppliedContent format="{ $suppliedContentFormat }">{ $suppliedContent }</corona:suppliedContent>
+		{
+			if(exists($suppliedContent) and exists($suppliedContentFormat))
+			then <corona:suppliedContent format="{ $suppliedContentFormat }">{ $suppliedContent }</corona:suppliedContent>
+			else ()
+		}
         {
             if($extractMetadata = false() and $extractContent = false())
             then ()
