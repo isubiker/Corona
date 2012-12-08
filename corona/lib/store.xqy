@@ -573,16 +573,32 @@ declare function store:insertBinaryDocument(
     let $test := store:validateURI($uri)
     let $sidecarURI := store:getSidecarURI($uri)
     let $sidecar := store:createSidecarDocument($uri, $content, $suppliedContent, $extractMetadata, $extractContent, $applyTransform, $requestParameters)
+
 	let $permissions :=
 		if(empty($permissions))
 		then xdmp:default-permissions()
 		else $permissions
-    let $insertSidecar := xdmp:document-insert($sidecarURI, $sidecar, $permissions, $collections, $quality)
-    let $setPropertis :=
-        if(exists($properties))
-        then xdmp:document-set-properties($sidecarURI, $properties)
-        else xdmp:document-set-properties($sidecarURI, ())
+
+	(: If this binary document has a sidecar, insert it. Otherwise, if one existed before delete it as it's now stale :)
+    let $insertSidecar :=
+		if(exists($sidecar))
+		then xdmp:document-insert($sidecarURI, $sidecar, $permissions, $collections, $quality)
+		else if(exists(doc($sidecarURI)))
+		then xdmp:document-delete($sidecarURI)
+		else ()
+
     let $insert := xdmp:document-insert($uri, $content, $permissions, $collections, $quality)
+
+	let $setPropertiesOn :=
+		if(exists($sidecar))
+		then $sidecarURI
+		else $uri
+
+    let $setProperties :=
+        if(exists($properties))
+        then xdmp:document-set-properties($setPropertiesOn, $properties)
+        else xdmp:document-set-properties($setPropertiesOn, ())
+
 	where $respondWithContent
     return $content
 };
@@ -676,15 +692,20 @@ declare function store:updateBinaryDocumentContent(
     let $sidecarURI := store:getSidecarURI($uri)
     let $existingSidecar := doc($sidecarURI)
     let $sidecar := store:createSidecarDocument($uri, $content, $suppliedContent, $extractMetadata, $extractContent, $applyTransform, $requestParameters)
+
     let $updateSidecar :=
-        if(exists($existingSidecar))
-        then xdmp:node-replace($existingSidecar/*, $sidecar)
-        else xdmp:document-insert($sidecarURI, $sidecar, xdmp:document-get-permissions($uri), xdmp:document-get-collections($uri), xdmp:document-get-quality($uri))
+		if(exists($sidecar))
+		then
+			if(exists($existingSidecar))
+			then xdmp:node-replace($existingSidecar/*, $sidecar)
+			else xdmp:document-insert($sidecarURI, $sidecar, xdmp:document-get-permissions($uri), xdmp:document-get-collections($uri), xdmp:document-get-quality($uri))
+		else if(exists($existingSidecar))
+		then xdmp:document-delete($sidecarURI)
+		else ()
+
     let $update := xdmp:node-replace($existing/node(), $content)
-    return
-        if($respondWithContent)
-        then $content
-        else ()
+	where $respondWithContent
+    return $content
 };
 
 declare function store:getBinaryContentType(
@@ -723,13 +744,11 @@ declare function store:setProperties(
 ) as empty-sequence()
 {
     let $test := store:validateURI($uri)
+	where exists($properties)
 	return
-    if(exists($properties))
-    then
-        if(store:getDocumentType($uri) = "binary")
-        then xdmp:document-set-properties(store:getSidecarURI($uri), $properties)
-        else xdmp:document-set-properties($uri, $properties)
-    else ()
+		if(store:getDocumentType($uri) = "binary" and exists(doc(store:getSidecarURI($uri))))
+		then xdmp:document-set-properties(store:getSidecarURI($uri), $properties)
+		else xdmp:document-set-properties($uri, $properties)
 };
 
 declare function store:addProperties(
@@ -739,9 +758,9 @@ declare function store:addProperties(
 {
     let $test := store:validateURI($uri)
 	return
-    if(store:getDocumentType($uri) = "binary")
-    then xdmp:document-add-properties(store:getSidecarURI($uri), $properties)
-    else xdmp:document-add-properties($uri, $properties)
+		if(store:getDocumentType($uri) = "binary" and exists(doc(store:getSidecarURI($uri))))
+		then xdmp:document-add-properties(store:getSidecarURI($uri), $properties)
+		else xdmp:document-add-properties($uri, $properties)
 };
 
 declare function store:removeProperties(
@@ -754,7 +773,7 @@ declare function store:removeProperties(
         for $prop in $properties
         return QName("http://marklogic.com/corona", $prop)
     return
-        if(store:getDocumentType($uri) = "binary")
+		if(store:getDocumentType($uri) = "binary" and exists(doc(store:getSidecarURI($uri))))
         then xdmp:document-remove-properties(store:getSidecarURI($uri), $properties)
         else xdmp:document-remove-properties($uri, $properties)
 };
@@ -765,13 +784,11 @@ declare function store:setPermissions(
 ) as empty-sequence()
 {
     let $test := store:validateURI($uri)
+	where exists($permissions)
 	return
-    if(exists($permissions))
-    then
-        if(store:getDocumentType($uri) = "binary")
+		if(store:getDocumentType($uri) = "binary" and exists(doc(store:getSidecarURI($uri))))
         then xdmp:document-set-permissions(store:getSidecarURI($uri), (xdmp:default-permissions(), $permissions))
         else xdmp:document-set-permissions($uri, (xdmp:default-permissions(), $permissions))
-    else ()
 };
 
 declare function store:addPermissions(
@@ -781,9 +798,9 @@ declare function store:addPermissions(
 {
     let $test := store:validateURI($uri)
 	return
-    if(store:getDocumentType($uri) = "binary")
-    then xdmp:document-add-permissions(store:getSidecarURI($uri), $permissions)
-    else xdmp:document-add-permissions($uri, $permissions)
+		if(store:getDocumentType($uri) = "binary" and exists(doc(store:getSidecarURI($uri))))
+		then xdmp:document-add-permissions(store:getSidecarURI($uri), $permissions)
+		else xdmp:document-add-permissions($uri, $permissions)
 };
 
 declare function store:removePermissions(
@@ -793,9 +810,9 @@ declare function store:removePermissions(
 {
     let $test := store:validateURI($uri)
 	return
-    if(store:getDocumentType($uri) = "binary")
-    then xdmp:document-remove-permissions(store:getSidecarURI($uri), $permissions)
-    else xdmp:document-remove-permissions($uri, $permissions)
+		if(store:getDocumentType($uri) = "binary" and exists(doc(store:getSidecarURI($uri))))
+		then xdmp:document-remove-permissions(store:getSidecarURI($uri), $permissions)
+		else xdmp:document-remove-permissions($uri, $permissions)
 };
 
 declare function store:setCollections(
@@ -805,13 +822,13 @@ declare function store:setCollections(
 {
     let $test := store:validateURI($uri)
 	return
-    if(empty($collections))
-    then ()
-    else if(empty(doc($uri)))
-    then error(xs:QName("corona:DOCUMENT-NOT-FOUND"), concat("There is no document at '", $uri, "'"))
-    else if(store:getDocumentType($uri) = "binary")
-    then xdmp:document-set-collections(store:getSidecarURI($uri), $collections)
-    else xdmp:document-set-collections($uri, $collections)
+		if(empty($collections))
+		then ()
+		else if(empty(doc($uri)))
+		then error(xs:QName("corona:DOCUMENT-NOT-FOUND"), concat("There is no document at '", $uri, "'"))
+		else if(store:getDocumentType($uri) = "binary" and exists(doc(store:getSidecarURI($uri))))
+		then xdmp:document-set-collections(store:getSidecarURI($uri), $collections)
+		else xdmp:document-set-collections($uri, $collections)
 };
 
 declare function store:addCollections(
@@ -821,9 +838,9 @@ declare function store:addCollections(
 {
     let $test := store:validateURI($uri)
 	return
-    if(store:getDocumentType($uri) = "binary")
-    then xdmp:document-add-collections(store:getSidecarURI($uri), $collections)
-    else xdmp:document-add-collections($uri, $collections)
+		if(store:getDocumentType($uri) = "binary" and exists(doc(store:getSidecarURI($uri))))
+		then xdmp:document-add-collections(store:getSidecarURI($uri), $collections)
+		else xdmp:document-add-collections($uri, $collections)
 };
 
 declare function store:removeCollections(
@@ -833,9 +850,9 @@ declare function store:removeCollections(
 {
     let $test := store:validateURI($uri)
 	return
-    if(store:getDocumentType($uri) = "binary")
-    then xdmp:document-remove-collections(store:getSidecarURI($uri), $collections)
-    else xdmp:document-remove-collections($uri, $collections)
+		if(store:getDocumentType($uri) = "binary" and exists(doc(store:getSidecarURI($uri))))
+		then xdmp:document-remove-collections(store:getSidecarURI($uri), $collections)
+		else xdmp:document-remove-collections($uri, $collections)
 };
 
 declare function store:setQuality(
@@ -844,13 +861,11 @@ declare function store:setQuality(
 ) as empty-sequence()
 {
     let $test := store:validateURI($uri)
+	where exists($quality)
 	return
-    if(exists($quality))
-    then
-        if(store:getDocumentType($uri) = "binary")
+		if(store:getDocumentType($uri) = "binary" and exists(doc(store:getSidecarURI($uri))))
         then xdmp:document-set-quality(store:getSidecarURI($uri), $quality)
         else xdmp:document-set-quality($uri, $quality)
-    else ()
 };
 
 
@@ -1029,7 +1044,7 @@ declare private function store:createSidecarDocument(
     $extractContent as xs:boolean,
     $applyTransform as xs:string?,
     $requestParameters as map:map
-) as element(corona:sidecar)
+) as element(corona:sidecar)?
 {
     let $suppliedContentFormat := common:xmlOrJSON($suppliedContent)
     let $suppliedContent :=
@@ -1039,6 +1054,7 @@ declare private function store:createSidecarDocument(
             then json:parse($suppliedContent)
             else store:unquoteXML($suppliedContent, false())
         else ()
+	where exists($suppliedContent) or $extractMetadata or $extractContent
     return <corona:sidecar type="binary" original="{ $documentURI }">
 		{
 			if(exists($suppliedContent) and exists($suppliedContentFormat))
