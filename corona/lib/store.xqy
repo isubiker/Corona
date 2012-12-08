@@ -91,10 +91,7 @@ declare function store:outputDocument(
        contentURI: holds the searchable content
        documentURI: holds the document that the user inserted
     :)
-    let $contentURI :=
-        if($documentType = "binary")
-        then store:getSidecarURI(base-uri($doc))
-        else base-uri($doc)
+    let $contentURI := (if($documentType = "binary") then store:getSidecarURI(base-uri($doc)) else (), base-uri($doc))[1]
     let $documentURI :=
         if($documentType = "binary-sidecar")
         then store:getDocumentURIFromSidecar($contentURI)

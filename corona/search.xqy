@@ -115,6 +115,7 @@ let $results :=
 	if(empty($orderBy) or empty($orderPath))
 	then cts:search(doc(), $query, $options, map:get($params, "qualityWeight"))[$start to $end]
 	else
+		(: XXX - think about limiting the cts:search calls to xml and text documents so raw binary documents aren't returned :)
 		if($orderDirection = "ascending")
 		then (
 			for $result in cts:search(doc(), $query, $options, map:get($params, "qualityWeight"))
